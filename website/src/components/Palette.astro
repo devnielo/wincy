@@ -1,0 +1,217 @@
+---
+import { Code, Files, Link, Pin, Search, Type } from "@lucide/astro";
+import type { Dict } from "../i18n/en";
+
+const { t } = Astro.props as { t: Dict };
+const d = t.demo;
+const kindIcon = { text: Type, url: Link, code: Code, files: Files } as const;
+---
+
+<div
+  class="stage"
+  data-demo
+  data-pasted={d.pasted}
+  data-pasted-plain={d.pastedPlain}
+>
+  <div class="press" aria-hidden="true"><kbd>Alt</kbd><kbd>V</kbd></div>
+  <svg class="pointer" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M5 3l14 8-6.2 1.6L9.6 19z" />
+  </svg>
+
+  <section class="palette" aria-label={d.label}>
+    <div class="palette-search">
+      <Search size={18} aria-hidden="true" />
+      <input
+        type="text"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="demo-list"
+        aria-autocomplete="list"
+        aria-label={d.search}
+        placeholder={d.search}
+        autocomplete="off"
+        spellcheck="false"
+      />
+    </div>
+    <ul id="demo-list" class="palette-list" role="listbox" aria-label={d.listLabel}>
+      {
+        d.items.map((item, i) => {
+          const Icon = item.kind === "color" || item.kind === "image" ? null : kindIcon[item.kind];
+          return (
+            <li
+              id={`clip-${i}`}
+              style={`--i:${i}`}
+              role="option"
+              aria-selected={i === 0 ? "true" : "false"}
+              data-kind={item.kind}
+              data-search={`${item.text} ${item.app} ${item.kind} ${d.kinds[item.kind]}`}
+            >
+              <span class="clip-kind" title={d.kinds[item.kind]}>
+                <span class="sr-only">{d.kinds[item.kind]}:</span>
+                {Icon && <Icon size={16} aria-hidden="true" />}
+                {item.kind === "color" && <span class="swatch" style={`background:${item.text}`} />}
+                {item.kind === "image" && (
+                  <svg class="thumb" viewBox="0 0 32 20" aria-hidden="true">
+                    <rect width="32" height="20" rx="3" fill="#2b3a67" />
+                    <circle cx="24" cy="6" r="3" fill="#ffd27a" />
+                    <path d="M0 20l10-10 7 6 5-4 10 8z" fill="#22b8cf" />
+                  </svg>
+                )}
+              </span>
+              <span class={`clip-text${item.kind === "code" ? " is-code" : ""}`}>{item.text}</span>
+              <span class="clip-app">{item.app}</span>
+              {item.pinned && (
+                <span class="clip-pin" title={d.pinned}>
+                  <Pin size={14} aria-hidden="true" />
+                  <span class="sr-only">{d.pinned}</span>
+                </span>
+              )}
+              <kbd class="clip-alt" aria-hidden="true">{i < 9 ? `Alt+${i + 1}` : ""}</kbd>
+            </li>
+          );
+        })
+      }
+    </ul>
+    <p class="palette-empty" hidden>{d.empty}</p>
+    <footer class="palette-hints" aria-hidden="true">
+      {
+        d.hints.map((h) => (
+          <span>
+            {h.keys.map((k) => <kbd>{k}</kbd>)}
+            {h.label}
+          </span>
+        ))
+      }
+    </footer>
+  </section>
+
+  <div class="closed" hidden>
+    <p>{d.closed}</p>
+    <button type="button" class="btn btn-small"><kbd>Alt</kbd><kbd>V</kbd> {d.reopen}</button>
+  </div>
+  <p class="toast" role="status" aria-live="polite"></p>
+</div>
+
+<script>
+  const root = document.querySelector<HTMLElement>("[data-demo]");
+  if (root) initDemo(root);
+
+  function initDemo(root: HTMLElement) {
+    const palette = root.querySelector<HTMLElement>(".palette")!;
+    const input = palette.querySelector("input")!;
+    const list = palette.querySelector<HTMLElement>(".palette-list")!;
+    const empty = palette.querySelector<HTMLElement>(".palette-empty")!;
+    const closed = root.querySelector<HTMLElement>(".closed")!;
+    const toast = root.querySelector<HTMLElement>(".toast")!;
+    const rows = [...list.querySelectorAll<HTMLLIElement>("[role=option]")];
+
+    const fold = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+    const haystacks = rows.map((r) => fold(r.dataset.search ?? ""));
+    // Every query word must appear in order (subsequence), which tolerates skipped letters like Fuse does for short queries.
+    const subseq = (hay: string, word: string) => {
+      let i = 0;
+      for (const c of hay) if (c === word[i] && ++i === word.length) return true;
+      return word.length === 0;
+    };
+
+    let visible = rows;
+    let selected = 0;
+    let toastTimer = 0;
+
+    function select(index: number) {
+      selected = Math.max(0, Math.min(index, visible.length - 1));
+      const current = visible[selected];
+      for (const r of rows) r.setAttribute("aria-selected", String(r === current));
+      if (!current) return input.removeAttribute("aria-activedescendant");
+      input.setAttribute("aria-activedescendant", current.id);
+      // Scroll only the list: scrollIntoView would also scroll the page.
+      if (current.offsetTop < list.scrollTop) list.scrollTop = current.offsetTop;
+      else if (current.offsetTop + current.offsetHeight > list.scrollTop + list.clientHeight)
+        list.scrollTop = current.offsetTop + current.offsetHeight - list.clientHeight;
+    }
+
+    function filter() {
+      const words = fold(input.value).split(/\s+/).filter(Boolean);
+      visible = rows.filter((r, i) => {
+        const match = words.every((w) => subseq(haystacks[i], w));
+        r.hidden = !match;
+        return match;
+      });
+      visible.forEach((r, i) => (r.querySelector(".clip-alt")!.textContent = i < 9 ? `Alt+${i + 1}` : ""));
+      empty.hidden = visible.length > 0;
+      list.scrollTop = 0;
+      select(0);
+    }
+
+    function paste(row: HTMLLIElement | undefined, plain: boolean) {
+      if (!row) return;
+      select(visible.indexOf(row));
+      row.classList.remove("is-pasted");
+      void row.offsetWidth; // restart the flash animation
+      row.classList.add("is-pasted");
+      const label = plain ? root.dataset.pastedPlain : root.dataset.pasted;
+      toast.textContent = `${label}: ${row.querySelector(".clip-text")!.textContent}`;
+      toast.classList.add("is-visible");
+      clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 2400);
+    }
+
+    function setOpen(open: boolean) {
+      palette.hidden = !open;
+      closed.hidden = open;
+      if (open) {
+        input.value = "";
+        filter();
+        input.focus();
+      } else {
+        closed.querySelector("button")!.focus();
+      }
+    }
+
+    input.addEventListener("input", filter);
+    input.addEventListener("keydown", (e) => {
+      if (e.altKey && /^Digit[1-9]$/.test(e.code)) {
+        e.preventDefault();
+        paste(visible[Number(e.code.slice(5)) - 1], false);
+        return;
+      }
+      switch (e.key) {
+        case "ArrowDown":
+          select(selected + 1);
+          break;
+        case "ArrowUp":
+          select(selected - 1);
+          break;
+        case "Enter":
+          paste(visible[selected], e.shiftKey);
+          break;
+        case "Escape":
+          if (input.value) {
+            input.value = "";
+            filter();
+          } else setOpen(false);
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+    });
+
+    // mousedown would steal focus from the search field, which the real palette never loses.
+    list.addEventListener("mousedown", (e) => e.preventDefault());
+    list.addEventListener("click", (e) => {
+      const row = (e.target as Element).closest<HTMLLIElement>("[role=option]");
+      if (row) paste(row, e.shiftKey);
+    });
+    palette.addEventListener("click", (e) => {
+      if (e.target !== input) input.focus({ preventScroll: true });
+    });
+    closed.querySelector("button")!.addEventListener("click", () => setOpen(true));
+    document.addEventListener("keydown", (e) => {
+      if (palette.hidden && e.altKey && e.code === "KeyV") {
+        e.preventDefault();
+        setOpen(true);
+      }
+    });
+  }
+</script>

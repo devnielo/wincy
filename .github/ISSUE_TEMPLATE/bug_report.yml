@@ -1,0 +1,57 @@
+name: Bug report
+description: Something in Wincy does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please do **not** paste clipboard contents that may contain passwords or personal data.
+  - type: input
+    id: wincy-version
+    attributes:
+      label: Wincy version
+      description: Settings → About, or the installer file name.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: windows-version
+    attributes:
+      label: Windows version
+      description: Run `winver` and copy the version and build.
+      placeholder: "Windows 11 24H2 (build 26100)"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Copy some text in Notepad
+        2. Press Alt+V
+        3. Press Enter
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include error messages and screenshots if relevant.
+    validations:
+      required: true
+  - type: input
+    id: target-app
+    attributes:
+      label: App involved (if any)
+      description: The app you copied from or pasted into, e.g. `chrome.exe`.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Keyboard layout, multiple monitors / DPI scaling, other clipboard tools running, etc.

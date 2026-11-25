@@ -1,0 +1,6 @@
+---
+// Renders a combo like "Ctrl+Delete" as separate keycaps.
+const { combo } = Astro.props as { combo: string };
+const keys = combo.split(/\+(?=.)/);
+---
+<span class="combo">{keys.map((k) => <kbd>{k}</kbd>)}</span>

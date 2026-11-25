@@ -1,0 +1,92 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+:root {
+  --wincy-surface: rgb(249 249 249 / 0.72);
+  --wincy-stroke: rgb(0 0 0 / 0.08);
+  --wincy-selected: rgb(0 0 0 / 0.055);
+  --wincy-card: rgb(255 255 255 / 0.55);
+  --wincy-field: rgb(255 255 255 / 0.7);
+  --font-sans: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+}
+
+:root.dark {
+  --wincy-surface: rgb(32 32 32 / 0.7);
+  --wincy-stroke: rgb(255 255 255 / 0.08);
+  --wincy-selected: rgb(255 255 255 / 0.065);
+  --wincy-card: rgb(255 255 255 / 0.035);
+  --wincy-field: rgb(255 255 255 / 0.06);
+}
+
+/* Transparent all the way down so the native Mica/Acrylic material shows through. */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: transparent !important;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+.wincy-surface {
+  background: var(--wincy-surface);
+  border: 1px solid var(--wincy-stroke);
+  border-radius: 8px;
+}
+
+.wincy-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(128 128 128 / 0.4) transparent;
+}
+
+/* Dev in a regular browser: fake a desktop behind a window-sized surface. */
+html[data-browser] {
+  background: linear-gradient(135deg, #5b7fa6, #9a7bb0 50%, #d39a7e) !important;
+}
+html[data-browser] body,
+html[data-browser] #root {
+  height: auto;
+  overflow: visible;
+}
+/* Palette + the preview panel 8px to its right, like the two desktop windows. */
+html[data-browser] body {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 48px 16px;
+}
+html[data-browser] #root {
+  width: 600px;
+  height: 460px;
+  flex-shrink: 0;
+}
+html[data-browser] #preview-root {
+  width: 560px;
+  height: 560px;
+  flex-shrink: 0;
+}
+html[data-browser] .wincy-surface {
+  backdrop-filter: blur(30px) saturate(1.4);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

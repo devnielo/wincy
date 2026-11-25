@@ -1,0 +1,96 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Wincy",
+  "version": "0.1.0",
+  "identifier": "dev.wincy.app",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Wincy",
+        "width": 600,
+        "height": 460,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": true,
+        "center": false
+      },
+      {
+        "label": "preview",
+        "title": "Wincy preview",
+        "width": 560,
+        "height": 560,
+        "visible": false,
+        "focus": false,
+        "focusable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": true,
+        "center": false
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self' ipc: http://ipc.localhost",
+        "connect-src": "'self' ipc: http://ipc.localhost",
+        "img-src": "'self' asset: http://asset.localhost data: blob:",
+        "style-src": "'self' 'unsafe-inline'",
+        "font-src": "'self' data:"
+      },
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$APPDATA/images/**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "createUpdaterArtifacts": true,
+    "publisher": "Wincy contributors",
+    "copyright": "Copyright (c) 2026 Wincy contributors",
+    "category": "Utility",
+    "shortDescription": "Keyboard-first clipboard manager for Windows",
+    "longDescription": "Wincy keeps your clipboard history in the system tray. Press Alt+V to open a palette next to the cursor, type to filter, and press Enter to paste into the app you were using.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/devnielo/wincy/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYzNkRBMzY4QzU3QzRBQUYKUldTdlNuekZhS050WTBBazNwM0N2WWZxajkzN2cwODk3Zmk4a0FiUHp6Q1hvOTN1dzdCaTMwMFcK",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

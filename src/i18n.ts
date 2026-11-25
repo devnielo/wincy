@@ -1,0 +1,230 @@
+import { useClipboardStore } from "./store/useClipboardStore";
+import type { Language } from "./types";
+
+const en = {
+  searchPlaceholder: "Search clipboard history…",
+  searchLabel: "Search clipboard history",
+  clipList: "Clipboard history",
+  emptyHistory: "No clips yet — copy something",
+  emptyResults: "No results",
+  "kind.all": "All",
+  "kind.text": "Text",
+  "kind.url": "Links",
+  "kind.color": "Colors",
+  "kind.code": "Code",
+  "kind.image": "Images",
+  "kind.files": "Files",
+  filterBy: "Filter: {kind}",
+  image: "Image",
+  moreFiles: "+{n} more",
+  pinned: "Pinned",
+  rich: "Rich text",
+  "a.paste": "Paste",
+  "a.plain": "Plain text",
+  "a.plainLong": "Paste as plain text",
+  "a.pin": "Pin",
+  "a.unpin": "Unpin",
+  "a.delete": "Delete",
+  "a.pause": "Pause capture",
+  "a.resume": "Resume capture",
+  "a.paused": "Paused",
+  "a.previewShow": "Show preview",
+  "a.previewHide": "Hide preview",
+  updateAvailable: "Update available",
+  "preview.loading": "Loading…",
+  "preview.gone": "This clip no longer exists",
+  "preview.source": "Source",
+  "preview.created": "First copied",
+  "preview.updated": "Last used",
+  "preview.uses": "Pastes",
+  "preview.chars": "Characters",
+  "preview.lines": "Lines",
+  "preview.size": "Size",
+  "preview.files": "{n} files",
+  "preview.unknownApp": "Unknown",
+  settings: "Settings",
+  back: "Back",
+  "s.general": "General",
+  "s.shortcut": "Open shortcut",
+  "s.shortcutHint": "Click, then press the new key combination. Esc cancels.",
+  "s.recording": "Press keys…",
+  "s.maxItems": "History size",
+  "s.maxItemsHint": "Pinned clips are kept and don't count.",
+  "s.launchAtStartup": "Launch at startup",
+  "s.pasteDirectly": "Paste into the active app",
+  "s.pasteDirectlyHint": "When off, Wincy only copies the clip to the clipboard.",
+  "s.captureImages": "Capture images",
+  "s.appearance": "Appearance",
+  "s.theme": "Theme",
+  "s.language": "Language",
+  "theme.system": "System",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "lang.system": "System",
+  "lang.en": "English",
+  "lang.es": "Español",
+  "s.privacy": "Privacy",
+  "s.ignoredApps": "Ignored apps",
+  "s.ignoredAppsHint": "Copies from these programs are never saved.",
+  "s.addApp": "Add",
+  "s.appPlaceholder": "e.g. bitwarden.exe",
+  "s.removeApp": "Remove {app}",
+  "s.appExists": "Already in the list",
+  "s.updates": "Updates",
+  "s.checkUpdates": "Check for updates automatically",
+  "s.checkNow": "Check for updates now",
+  "s.checking": "Checking…",
+  "s.upToDate": "You're up to date",
+  "s.checkFailed": "Couldn't check for updates (offline, or no release published yet).",
+  "s.install": "Install {version}",
+  "s.downloading": "Downloading… {pct}",
+  "s.installing": "Installing…",
+  "s.data": "Data",
+  "s.openDataDir": "Open data folder",
+  "s.clearHistory": "Clear history",
+  "s.clearTitle": "Clear clipboard history?",
+  "s.clearBody": "All clips except pinned ones will be deleted. This can't be undone.",
+  "s.cancel": "Cancel",
+  "s.clear": "Clear",
+  "s.trimTitle": "Keep only the newest {n} clips?",
+  "s.trimBody": "Older unpinned clips will be deleted. This can't be undone.",
+  "s.trim": "Delete",
+  "s.version": "Version {version}",
+  "s.github": "Source code on GitHub",
+} as const;
+
+export type MessageKey = keyof typeof en;
+
+const es: Record<MessageKey, string> = {
+  searchPlaceholder: "Buscar en el historial…",
+  searchLabel: "Buscar en el historial del portapapeles",
+  clipList: "Historial del portapapeles",
+  emptyHistory: "Aún no hay nada — copia algo",
+  emptyResults: "Sin resultados",
+  "kind.all": "Todo",
+  "kind.text": "Texto",
+  "kind.url": "Enlaces",
+  "kind.color": "Colores",
+  "kind.code": "Código",
+  "kind.image": "Imágenes",
+  "kind.files": "Archivos",
+  filterBy: "Filtro: {kind}",
+  image: "Imagen",
+  moreFiles: "+{n} más",
+  pinned: "Fijado",
+  rich: "Texto enriquecido",
+  "a.paste": "Pegar",
+  "a.plain": "Texto plano",
+  "a.plainLong": "Pegar como texto plano",
+  "a.pin": "Fijar",
+  "a.unpin": "Desfijar",
+  "a.delete": "Eliminar",
+  "a.pause": "Pausar captura",
+  "a.resume": "Reanudar captura",
+  "a.paused": "En pausa",
+  "a.previewShow": "Mostrar vista previa",
+  "a.previewHide": "Ocultar vista previa",
+  updateAvailable: "Actualización disponible",
+  "preview.loading": "Cargando…",
+  "preview.gone": "Este elemento ya no existe",
+  "preview.source": "Origen",
+  "preview.created": "Copiado por primera vez",
+  "preview.updated": "Último uso",
+  "preview.uses": "Pegados",
+  "preview.chars": "Caracteres",
+  "preview.lines": "Líneas",
+  "preview.size": "Tamaño",
+  "preview.files": "{n} archivos",
+  "preview.unknownApp": "Desconocido",
+  settings: "Ajustes",
+  back: "Volver",
+  "s.general": "General",
+  "s.shortcut": "Atajo para abrir",
+  "s.shortcutHint": "Haz clic y pulsa la nueva combinación. Esc cancela.",
+  "s.recording": "Pulsa las teclas…",
+  "s.maxItems": "Tamaño del historial",
+  "s.maxItemsHint": "Los elementos fijados se conservan y no cuentan.",
+  "s.launchAtStartup": "Iniciar con Windows",
+  "s.pasteDirectly": "Pegar en la aplicación activa",
+  "s.pasteDirectlyHint": "Si está desactivado, Wincy solo copia al portapapeles.",
+  "s.captureImages": "Guardar imágenes",
+  "s.appearance": "Apariencia",
+  "s.theme": "Tema",
+  "s.language": "Idioma",
+  "theme.system": "Sistema",
+  "theme.light": "Claro",
+  "theme.dark": "Oscuro",
+  "lang.system": "Sistema",
+  "lang.en": "English",
+  "lang.es": "Español",
+  "s.privacy": "Privacidad",
+  "s.ignoredApps": "Aplicaciones ignoradas",
+  "s.ignoredAppsHint": "Lo que copies desde estos programas nunca se guarda.",
+  "s.addApp": "Añadir",
+  "s.appPlaceholder": "p. ej. bitwarden.exe",
+  "s.removeApp": "Quitar {app}",
+  "s.appExists": "Ya está en la lista",
+  "s.updates": "Actualizaciones",
+  "s.checkUpdates": "Buscar actualizaciones automáticamente",
+  "s.checkNow": "Buscar actualizaciones ahora",
+  "s.checking": "Buscando…",
+  "s.upToDate": "Tienes la última versión",
+  "s.checkFailed": "No se pudo comprobar (sin conexión o aún no hay versiones publicadas).",
+  "s.install": "Instalar {version}",
+  "s.downloading": "Descargando… {pct}",
+  "s.installing": "Instalando…",
+  "s.data": "Datos",
+  "s.openDataDir": "Abrir carpeta de datos",
+  "s.clearHistory": "Borrar historial",
+  "s.clearTitle": "¿Borrar el historial?",
+  "s.clearBody": "Se eliminarán todos los elementos excepto los fijados. No se puede deshacer.",
+  "s.cancel": "Cancelar",
+  "s.clear": "Borrar",
+  "s.trimTitle": "¿Conservar solo los {n} elementos más recientes?",
+  "s.trimBody": "Se eliminarán los elementos no fijados más antiguos. No se puede deshacer.",
+  "s.trim": "Eliminar",
+  "s.version": "Versión {version}",
+  "s.github": "Código fuente en GitHub",
+};
+
+const dictionaries = { en, es };
+export type Locale = keyof typeof dictionaries;
+
+export function resolveLocale(language: Language): Locale {
+  if (language !== "system") return language;
+  return navigator.language.toLowerCase().startsWith("es") ? "es" : "en";
+}
+
+export type Translate = (key: MessageKey, vars?: Record<string, string | number>) => string;
+
+function translator(locale: Locale): Translate {
+  const dict: Record<MessageKey, string> = dictionaries[locale];
+  return (key, vars) => dict[key].replace(/\{(\w+)\}/g, (m, name: string) => String(vars?.[name] ?? m));
+}
+
+const translators = { en: translator("en"), es: translator("es") };
+
+export function useI18n(): { t: Translate; locale: Locale } {
+  const locale = resolveLocale(useClipboardStore((s) => s.settings?.language ?? "system"));
+  return { t: translators[locale], locale };
+}
+
+const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["year", 365 * 24 * 3600_000],
+  ["month", 30 * 24 * 3600_000],
+  ["week", 7 * 24 * 3600_000],
+  ["day", 24 * 3600_000],
+  ["hour", 3600_000],
+  ["minute", 60_000],
+  ["second", 1000],
+];
+
+export function relativeTime(ms: number, locale: Locale, now = Date.now()): string {
+  const diff = ms - now;
+  const [unit, size] = UNITS.find(([, size]) => Math.abs(diff) >= size) ?? UNITS[UNITS.length - 1];
+  return new Intl.RelativeTimeFormat(locale, { numeric: "auto", style: "narrow" }).format(Math.round(diff / size), unit);
+}
+
+export function formatDate(ms: number, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(ms);
+}
