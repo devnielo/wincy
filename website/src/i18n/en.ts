@@ -148,7 +148,7 @@ const en = {
         fragment: "pins",
         keys: ["Alt+1–9"],
         title: "Keeps your pins on top",
-        body: "Ctrl+P pins a clip. Pins are never trimmed, stay at the top of the list, and Alt+1 to Alt+9 pastes the first nine clips without looking.",
+        body: "Ctrl+P pins a clip. Pins are never trimmed, stay at the top of the list, and Alt+1 to Alt+9 pastes the first nine clips without looking. Give a pin its own shortcut and it pastes from any app, without opening Wincy.",
       },
       {
         fragment: "plain",
@@ -166,7 +166,7 @@ const en = {
   },
   shortcuts: {
     title: "Keyboard shortcuts",
-    lead: "Wincy is made to be driven from the keyboard. Every shortcut also has a button, and you can drag the palette by its top bar.",
+    lead: "Wincy is made to be driven from the keyboard. Every shortcut also has a button, and you can drag the palette by its top bar. Pinned clips and snippets can have shortcuts of their own that work in any app.",
     typeLabel: "Just type",
     rows: [
       { keys: ["Alt+V"], action: "Open Wincy from any app (you can change it)" },
@@ -175,9 +175,10 @@ const en = {
       { keys: ["Enter"], action: "Paste" },
       { keys: ["Shift+Enter"], action: "Paste as plain text" },
       { keys: ["Alt+1–9"], action: "Paste one of the first nine clips (pins come first)" },
+      { keys: ["Ctrl+K"], action: "Quick actions: change case, format JSON, decode Base64 or a URL, open a link, save as a snippet" },
       { keys: ["Ctrl+P"], action: "Pin or unpin" },
       { keys: ["Ctrl+Delete"], action: "Delete the clip" },
-      { keys: ["Tab", "Shift+Tab"], action: "Switch the type filter: all, text, links, colors, code, images, files" },
+      { keys: ["Tab", "Shift+Tab"], action: "Switch the type filter: all, text, links, colors, code, images, files, snippets" },
       { keys: ["Ctrl+Space"], action: "Show or hide the preview" },
       { keys: ["Ctrl+,"], action: "Open Settings" },
       { keys: ["Esc"], action: "Clear the search; if it's already empty, close Wincy" },
@@ -220,6 +221,9 @@ const en = {
       ["Text in images", "Searchable, with the OCR built into Windows", "No"],
       ["Quick paste", "Alt+1 … Alt+9", "No"],
       ["Type filters", "Text, links, colors, code, images, files", "No"],
+      ["Snippets", "Yes, with date, time and clipboard variables", "No"],
+      ["Quick actions", "Change case, format JSON, Base64 and URL encode or decode", "No"],
+      ["Export and import", "To a file on your PC", "No"],
       ["Cloud sync", "No, everything stays on your PC", "Optional, with a Microsoft account"],
     ],
   },
@@ -248,7 +252,7 @@ const en = {
       },
     ],
     link: "Open the latest release",
-    note: "Not on winget yet, and there's no portable .zip.",
+    note: "Not on winget yet. Rather not install? Each release also has a portable .zip: extract it and run wincy.exe. It keeps its data in its own folder and doesn't update itself.",
     smartscreen: {
       title: "Windows protected your PC",
       moreInfo: "More info",
@@ -270,7 +274,11 @@ const en = {
       },
       {
         q: "Where is my history stored?",
-        a: "In a SQLite database in your Windows user profile, inside Wincy's data folder. Copied images are saved there as PNG files. Settings has a button that opens the folder in File Explorer.",
+        a: "In a SQLite database in your Windows user profile, inside Wincy's data folder. Copied images are saved there as PNG files. Settings has a button that opens the folder in File Explorer. The portable version keeps everything in a data folder next to wincy.exe instead.",
+      },
+      {
+        q: "Can I back up my history or move it to another PC?",
+        a: "Yes. Settings → Data → Export saves your history and snippets, with or without images, to a .wincy.json file; Import on the other PC adds it to what's already there without duplicates. Settings stay on each PC. The file holds what you copied as plain text, so keep it somewhere safe.",
       },
       {
         q: "Will it save my passwords?",
@@ -286,7 +294,7 @@ const en = {
       },
       {
         q: "How do updates work?",
-        a: "Wincy checks GitHub Releases when it starts and tells you when a new version is out. You install it with one click in Settings; updates are signed and verified before they install. You can turn the check off.",
+        a: "Wincy checks GitHub Releases when it starts and tells you when a new version is out. You install it with one click in Settings; updates are signed and verified before they install. You can turn the check off. The portable version can't replace itself: it opens the download page, and you swap in the new wincy.exe.",
       },
       {
         q: "Why does Windows warn me when I install it?",

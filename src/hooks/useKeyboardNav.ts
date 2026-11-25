@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { api, errorMessage } from "../api";
-import { selectFiltered, useClipboardStore } from "../store/useClipboardStore";
+import { selectCount, selectSelected, useClipboardStore } from "../store/useClipboardStore";
 
 // shortcut: fixed page size matching ~8 visible 44px rows in the 460px window; measure if the window becomes resizable.
 const PAGE = 8;
@@ -11,9 +11,20 @@ export function useKeyboardNav() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.isComposing || e.keyCode === 229) return; // IME composition in progress
+      // Handled by a focused control (quick actions, recorder). Its async work may already have closed the
+      // panel: a fast promise settles between that handler and this one.
+      if (e.defaultPrevented) return;
       const s = useClipboardStore.getState();
+      if (s.actionsOpen) {
+        // The panel handles its own keys; this Esc only arrives if focus escaped the panel.
+        if (e.key === "Escape") {
+          e.preventDefault();
+          s.setActionsOpen(false);
+        }
+        return;
+      }
       const i = s.selectedIndex;
-      const last = selectFiltered(s).length - 1;
+      const last = selectCount(s) - 1;
       // AltGr arrives as Ctrl+Alt on Windows and types characters (e.g. "@" on es layouts): never treat it as Alt.
       const alt = e.altKey && !e.ctrlKey && !e.metaKey;
       const ctrl = e.ctrlKey && !e.altKey && !e.metaKey;
@@ -22,6 +33,7 @@ export function useKeyboardNav() {
         if (alt && /^Digit[1-9]$/.test(e.code)) return () => s.paste(Number(e.code.slice(5)) - 1, false);
         if (ctrl) {
           switch (e.key.toLowerCase()) {
+            case "k": return () => selectSelected(s) && s.setActionsOpen(true);
             case "p": return s.togglePin;
             case "delete": return s.deleteSelected;
             case " ": return s.togglePreview;

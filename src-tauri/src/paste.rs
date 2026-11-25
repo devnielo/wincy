@@ -27,7 +27,21 @@ pub fn paste(app: &AppHandle, id: i64, plain: bool) -> Result<(), String> {
         db::mark_used(&conn, id).map_err(|e| e.to_string())?;
     }
     let _ = app.emit("clips-changed", ());
+    deliver(app)
+}
 
+/// `paste_text`: pastes `text` as plain text. Not captured (own write).
+pub fn paste_text(app: &AppHandle, text: &str) -> Result<(), String> {
+    if text.len() > clipboard::MAX_TEXT_BYTES {
+        return Err("The text is too large to paste (max 1 MB)".into());
+    }
+    clipboard::write_text(text)?;
+    deliver(app)
+}
+
+/// Hides the palette, restores the paste target and sends Ctrl+V (when `pasteDirectly`).
+fn deliver(app: &AppHandle) -> Result<(), String> {
+    let state = app.state::<AppState>();
     window::hide_and_restore(app);
     if !state.settings.lock().unwrap().paste_directly {
         return Ok(());

@@ -2,7 +2,7 @@ import { Button, Input } from "@heroui/react";
 import { Search, Settings } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useI18n } from "../i18n";
-import { KIND_FILTERS, selectSelected, useClipboardStore } from "../store/useClipboardStore";
+import { KIND_FILTERS, selectSelected, selectSelectedSnippet, useClipboardStore } from "../store/useClipboardStore";
 import { ActionButton } from "./ActionButton";
 import { KIND_ICONS } from "./kindIcons";
 
@@ -14,10 +14,19 @@ export function SearchBar() {
   const setKind = useClipboardStore((s) => s.setKind);
   const setView = useClipboardStore((s) => s.setView);
   const shownCount = useClipboardStore((s) => s.shownCount);
-  const activeId = useClipboardStore((s) => selectSelected(s)?.id);
+  const activeId = useClipboardStore((s) => {
+    const snippet = selectSelectedSnippet(s);
+    if (snippet) return `snippet-${snippet.id}`;
+    const clip = selectSelected(s);
+    return clip && `clip-${clip.id}`;
+  });
+  const actionsOpen = useClipboardStore((s) => s.actionsOpen);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => inputRef.current?.focus(), [shownCount]);
+  // Also when the quick actions panel closes: its input had the focus.
+  useEffect(() => {
+    if (!actionsOpen) inputRef.current?.focus();
+  }, [shownCount, actionsOpen]);
 
   useEffect(() => {
     const focus = () => inputRef.current?.focus();
@@ -41,7 +50,7 @@ export function SearchBar() {
         aria-expanded
         aria-controls="clip-list"
         aria-autocomplete="list"
-        aria-activedescendant={activeId === undefined ? undefined : `clip-${activeId}`}
+        aria-activedescendant={activeId}
         spellCheck={false}
         autoComplete="off"
         className="h-9 min-w-0 flex-1 border-0 bg-transparent px-1 text-[15px] shadow-none outline-none focus:ring-0 focus-visible:ring-0"

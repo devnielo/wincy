@@ -1,13 +1,15 @@
+import { Toast } from "@heroui/react";
 import { useEffect } from "react";
 import { api, checkForUpdate, errorMessage, onEvent } from "./api";
 import { ClipList } from "./components/ClipList";
 import { Footer } from "./components/Footer";
+import { QuickActions } from "./components/QuickActions";
 import { SearchBar } from "./components/SearchBar";
 import { SettingsView } from "./components/SettingsView";
 import { useAppearance } from "./hooks/useAppearance";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
 import { useI18n } from "./i18n";
-import { selectSelected, useClipboardStore } from "./store/useClipboardStore";
+import { selectSelected, selectSelectedSnippet, useClipboardStore } from "./store/useClipboardStore";
 
 let updateChecked = false;
 
@@ -25,6 +27,7 @@ function useBackendSync() {
       if (st.status?.shortcutError) st.setView("settings");
     });
     void s.refresh();
+    void s.loadSnippets();
     void s.refreshPaused();
     const subscriptions = [
       onEvent("clips-changed", () => void useClipboardStore.getState().refresh()),
@@ -35,6 +38,7 @@ function useBackendSync() {
         void st.refreshPaused(); // also emitted when capture is paused/resumed
       }),
       onEvent("status-changed", (status) => useClipboardStore.getState().setStatus(status)),
+      onEvent("snippets-changed", () => void useClipboardStore.getState().loadSnippets()),
     ];
     return () => subscriptions.forEach((p) => void p.then((unlisten) => unlisten()));
   }, []);
@@ -49,7 +53,12 @@ function useBackendSync() {
 
 /** Drives the `preview` window: the selected clip while the preview is on, else hidden. */
 function usePreviewSync() {
-  const id = useClipboardStore((s) => (s.showPreview ? (selectSelected(s)?.id ?? null) : null));
+  // Snippets go as negative ids: set_preview only forwards the id, and the preview window loads a snippet for it.
+  const id = useClipboardStore((s) => {
+    if (!s.showPreview) return null;
+    const snippet = selectSelectedSnippet(s);
+    return snippet ? -snippet.id : (selectSelected(s)?.id ?? null);
+  });
   // Re-send on every open: the backend hid the panel with the palette, even if the id is unchanged.
   const shownCount = useClipboardStore((s) => s.shownCount);
 
@@ -67,11 +76,13 @@ function usePreviewSync() {
 function Palette() {
   useKeyboardNav();
   usePreviewSync();
+  const actionsOpen = useClipboardStore((s) => s.actionsOpen);
   return (
     <>
       <SearchBar />
       <ClipList />
       <Footer />
+      {actionsOpen && <QuickActions />}
     </>
   );
 }
@@ -87,8 +98,10 @@ export default function App() {
   }, [locale]);
 
   return (
-    <main className="wincy-surface flex h-full flex-col overflow-hidden text-foreground">
+    <main className="wincy-surface relative flex h-full flex-col overflow-hidden text-foreground">
       {view === "palette" ? <Palette /> : <SettingsView />}
+      {/* No hotkey: the default Alt+T would pull focus out of the search input. */}
+      <Toast.Provider placement="bottom" width={380} hotkey={[]} />
     </main>
   );
 }

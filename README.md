@@ -26,17 +26,21 @@
 
 - **Opens where you are:** a command palette appears next to the mouse cursor, not in a corner of the screen.
 - **Everything you copy:** text, rich text (HTML), images, file lists, URLs, colors and code, each detected and labeled automatically.
-- **Fuzzy search** across contents and source apps, plus quick kind filters (<kbd>Tab</kbd>) and an `app:` filter (`app:chrome`).
+- **Fuzzy search** across contents and source apps, plus quick kind filters (<kbd>Tab</kbd>) and an `app:` filter (`app:chrome`). In very large histories, a full-text index finds older clips too.
 - **Search inside images:** text in screenshots and other copied images is read with the OCR built into Windows, on your PC, so searching finds them too.
 - **Paste anywhere:** <kbd>Enter</kbd> pastes straight into the app you were using; <kbd>Shift</kbd>+<kbd>Enter</kbd> pastes as plain text.
 - **Quick paste:** <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> pastes the Nth visible item.
-- **Pins** keep snippets forever; they are never trimmed from history.
+- **Quick actions:** <kbd>Ctrl</kbd>+<kbd>K</kbd> on a clip to change its case, trim it, format JSON, encode or decode Base64 and URLs, open a link, show a file in Explorer or paste a color as HEX, RGB or HSL.
+- **Snippets** for text you type again and again, with variables such as `{date}` and `{clipboard}` filled in when you paste.
+- **Pins** keep clips forever; they are never trimmed from history.
+- **Global shortcuts** for pinned clips and snippets: paste them into any app without opening the palette.
+- **Export / import** your history and snippets to a file, to back them up or move them to another PC.
 - **Floating preview panel** beside the palette (right or left, wherever it fits) that shows the hovered or selected clip in full: long text, code, images, colors and file lists, with scrolling.
 - **Mouse-friendly:** drag the palette by its search bar, and every shortcut has a button: paste, plain text, pin, delete, pause capture, preview and settings.
 - **Private by design:** local only, skips password managers, content marked as sensitive and text that looks like a secret (private keys, API tokens, card numbers); pause capture from the tray, and optionally let old clips expire after a number of days.
 - **Light on resources:** event-driven capture (no polling), native Windows vibrancy (Mica / Acrylic), small Tauri binary.
 - **Your look:** system, light or dark theme and an accent color (the Windows accent by default, or one of seven others).
-- **Automatic, signed updates** and an English / Spanish interface.
+- **Automatic, signed updates** and an English / Spanish interface, or a **portable version** that keeps everything in its own folder.
 
 ## Install
 
@@ -49,6 +53,12 @@
 Wincy checks for updates on startup (you can turn this off in Settings). Updates are signed and verified before they are installed.
 
 Requires Windows 10 or 11 (x64). WebView2 is already part of Windows 10/11.
+
+### Portable version
+
+Prefer not to install anything? Download `Wincy_<version>_x64-portable.zip` from the same release, extract the whole zip into a folder you can write to (a USB drive works) and run `wincy.exe`. Don't run it from inside the zip.
+
+The empty file named `portable` next to `wincy.exe` is what makes it portable: your history, images, settings and logs are kept in a `data` folder beside the exe instead of your user profile. The portable version doesn't start with Windows (the option is hidden) and doesn't update itself: when a new version is out it tells you and opens the download page; replace `wincy.exe` and keep the `data` folder. Like the installer, the exe is not code-signed yet, so SmartScreen may warn the first time.
 
 ## Usage
 
@@ -64,12 +74,14 @@ Copy things as usual. When you need something again, press <kbd>Alt</kbd>+<kbd>V
 | <kbd>Enter</kbd> | Paste |
 | <kbd>Shift</kbd>+<kbd>Enter</kbd> | Paste as plain text |
 | <kbd>Alt</kbd>+<kbd>1</kbd> … <kbd>Alt</kbd>+<kbd>9</kbd> | Paste the Nth visible item (pins come first, so <kbd>Alt</kbd>+<kbd>1</kbd> is the first pin) |
+| <kbd>Ctrl</kbd>+<kbd>K</kbd> | Quick actions for the selected clip (type to filter, <kbd>Enter</kbd> runs, <kbd>Esc</kbd> closes) |
 | <kbd>Ctrl</kbd>+<kbd>P</kbd> | Pin / unpin |
 | <kbd>Ctrl</kbd>+<kbd>Delete</kbd> | Delete the item |
-| <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> | Cycle the kind filter: all → text → url → color → code → image → files |
+| <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> | Cycle the kind filter: all → text → url → color → code → image → files → snippets |
 | <kbd>Ctrl</kbd>+<kbd>Space</kbd> | Show / hide the preview panel |
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | Open settings |
 | <kbd>Esc</kbd> | Clear the search; if it is empty, close the palette (in settings: back to the palette) |
+| *your own* | Paste a pinned clip or snippet that has its own shortcut, from any app (global) |
 
 The tray icon menu lets you open the palette or settings, pause capture, clear history (pinned items are kept), or quit.
 
@@ -88,6 +100,44 @@ Type a few letters of anything in the clip: its text, the text Wincy found in an
 | `app:chrome app:edge` | everything copied from Chrome or Edge |
 
 Text in images is recognized in the background with the Windows OCR engine, in one of your Windows display languages; nothing is uploaded. If no OCR language is installed, images are still saved, just not searchable by their text. To turn it off, use Settings → **Recognize text in images**.
+
+With a large history, the palette keeps all pins and the newest 2,000 clips at hand for instant fuzzy search. If you have more, search also looks through the older ones with a full-text index (matches word beginnings, ignores accents) and lists what it finds after the other results.
+
+### Quick actions
+
+Press <kbd>Ctrl</kbd>+<kbd>K</kbd> (or click **Actions** in the footer) to see what you can do with the selected clip. Type to filter the list, <kbd>Enter</kbd> runs an action, <kbd>Esc</kbd> closes it. Only the actions that make sense for the clip are shown:
+
+| Clip | Actions |
+|---|---|
+| Text | UPPERCASE, lowercase, Title Case, Trim, Collapse whitespace, Remove line breaks; Format / Minify JSON (when it is valid JSON); Base64 and URL encode / decode (decode only when the result is readable text); **Save as snippet** |
+| Link | **Open in browser** (http, https and mailto links) |
+| Files | **Show in Explorer** (the first file) |
+| Color | Paste as HEX, RGB or HSL |
+| Pinned clip | **Set shortcut…** |
+
+Transformed text is pasted as plain text. The clip in your history stays as it was, and the transformed text is not added to it.
+
+### Snippets
+
+Snippets are texts you paste often: a signature, an address, a reply template. Add, edit and delete them in Settings → **Snippets**, or turn a clip into one with **Save as snippet** in its quick actions. In the palette they have their own filter (**Snippets**, the last one in the <kbd>Tab</kbd> cycle) and search covers their name and text; <kbd>Enter</kbd> pastes a snippet as plain text.
+
+These variables are filled in when you paste:
+
+| Variable | Becomes |
+|---|---|
+| `{date}` | today's date in your Windows short date format |
+| `{time}` | the current time (`HH:MM`) |
+| `{datetime}` | date and time |
+| `{clipboard}` | the text currently on the clipboard |
+| `{{` | a literal `{` |
+
+Any other `{word}` is pasted as is.
+
+### Shortcuts for pins and snippets
+
+Give a pinned clip its own shortcut with **Set shortcut…** in its quick actions, or a snippet in the snippet editor. Pressing that shortcut in any app pastes the clip or snippet straight away, without opening the palette. A row with a shortcut shows it as a small keycap next to the pin.
+
+Unpinning or deleting a clip removes its shortcut. Wincy refuses shortcuts it already uses and the same combinations as for the main shortcut (such as <kbd>Ctrl</kbd>+<kbd>C</kbd> or <kbd>Alt</kbd>+<kbd>1</kbd>). If another program already owns one of your shortcuts, Settings lists it so you can pick another.
 
 ## Privacy
 
@@ -111,7 +161,17 @@ Pinned items are kept until you delete them. Everything else is trimmed to the h
 | Settings | `%APPDATA%\dev.wincy.app\settings.json` (the app config folder) |
 | Logs | `%LOCALAPPDATA%\dev.wincy.app\logs\` (rotated at about 1 MB; never contain clip contents) |
 
-**Settings → Open data folder** opens it in Explorer. **Clear history** deletes everything except pinned items. Text recognized in images is stored with the clip in the same database.
+**Settings → Open data folder** opens it in Explorer. **Clear history** deletes everything except pinned items. Text recognized in images and your snippets are stored in the same database.
+
+In the [portable version](#portable-version), all of the above lives in the `data` folder next to `wincy.exe` instead.
+
+### Export and import
+
+Settings → **Data** → **Export…** saves your history and snippets to a `.wincy.json` file; with **Include images** (on by default) copied images go in too, which makes the file larger. Settings are not exported, as they belong to each PC.
+
+**Import…** reads such a file and adds it to your current history. Clips you already have are not duplicated, secrets are skipped when **Ignore secrets** is on, and the history is trimmed to its size afterwards (pinned clips are kept). Files that aren't a valid Wincy export are rejected.
+
+The export file holds your clipboard history as plain text. Keep it somewhere safe.
 
 ## Reporting a bug
 
@@ -122,6 +182,8 @@ When you [open a bug report](https://github.com/devnielo/wincy/issues/new?templa
 ## Uninstall
 
 Windows Settings → Apps → Installed apps → **Wincy** → Uninstall. The uninstaller offers to delete your app data too; to remove it by hand, delete both `%APPDATA%\dev.wincy.app` and `%LOCALAPPDATA%\dev.wincy.app`.
+
+Portable version: quit Wincy from the tray and delete its folder.
 
 ## Build from source
 
@@ -154,7 +216,7 @@ pnpm tauri build    # installer in src-tauri/target/release/bundle/nsis/
 │   ├── ARCHITECTURE.md  contract between backend and frontend: commands, events, types
 │   ├── RELEASING.md     how releases and auto-updates are produced
 │   └── SIGNING.md       Authenticode signing through SignPath Foundation
-├── packaging/winget/    winget manifest templates
+├── packaging/           winget manifest templates, portable zip README
 └── .github/             CI, release and Pages workflows, issue templates
 ```
 
@@ -162,18 +224,17 @@ pnpm tauri build    # installer in src-tauri/target/release/bundle/nsis/
 
 - [Tauri v2](https://tauri.app/) and Rust: Win32 clipboard listener (`AddClipboardFormatListener`), [rusqlite](https://github.com/rusqlite/rusqlite) (bundled SQLite), [enigo](https://github.com/enigo-rs/enigo) for paste, [window-vibrancy](https://github.com/tauri-apps/window-vibrancy)
 - React 19 and TypeScript, [HeroUI](https://www.heroui.com/), [Tailwind CSS 4](https://tailwindcss.com/), [TanStack Virtual](https://tanstack.com/virtual), [Fuse.js](https://www.fusejs.io/), [Zustand](https://zustand.docs.pmnd.rs/), [Lucide](https://lucide.dev/) icons
-- NSIS installer with signed auto-updates via `tauri-plugin-updater`
+- SQLite FTS5 full-text index for large histories
+- NSIS installer with signed auto-updates via `tauri-plugin-updater`, plus a portable zip
 
 ## Roadmap ideas
 
 Directions, not promises. Open an issue to discuss before starting work.
 
-- Snippets with placeholders (date, cursor position)
-- Text transforms before paste (case, trim, JSON format, URL decode)
+- A cursor-position placeholder in snippets
 - Per-app paste rules and an "always plain text" list
 - Optional encryption of the history database
 - "Center of screen" palette position and multi-monitor options
-- Export / import of pinned items
 - More languages
 - winget and Scoop packages
 

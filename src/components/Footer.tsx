@@ -1,7 +1,7 @@
 import { Chip } from "@heroui/react";
-import { ArrowDownToLine, ClipboardPaste, Eye, EyeOff, Pause, Pin, PinOff, Play, Settings, Trash2, Type } from "lucide-react";
+import { ArrowDownToLine, ClipboardPaste, Eye, EyeOff, Pause, Pin, PinOff, Play, Settings, Trash2, Type, Zap } from "lucide-react";
 import { useI18n } from "../i18n";
-import { selectSelected, useClipboardStore } from "../store/useClipboardStore";
+import { selectSelected, selectSelectedSnippet, useClipboardStore } from "../store/useClipboardStore";
 import { ActionButton } from "./ActionButton";
 
 /** Every palette shortcut as a button (contract: "Mouse-first actions"). */
@@ -12,6 +12,7 @@ export function Footer() {
   const showPreview = useClipboardStore((s) => s.showPreview);
   const hasUpdate = useClipboardStore((s) => s.update !== null);
   const selected = useClipboardStore(selectSelected);
+  const hasSnippet = useClipboardStore((s) => !!selectSelectedSnippet(s));
   const s = useClipboardStore.getState();
   const none = !selected;
   // Live index: Footer doesn't re-render when only selectedIndex changes (same clip, new row).
@@ -33,7 +34,7 @@ export function Footer() {
           label={t("a.paste")}
           text={t("a.paste")}
           keys="Enter"
-          isDisabled={none}
+          isDisabled={none && !hasSnippet}
           onPress={() => paste(false)}
         />
         <ActionButton
@@ -43,6 +44,14 @@ export function Footer() {
           keys="Shift Enter"
           isDisabled={none}
           onPress={() => paste(true)}
+        />
+        <ActionButton
+          icon={Zap}
+          label={t("a.actionsLong")}
+          text={t("a.actions")}
+          keys="Ctrl K"
+          isDisabled={none}
+          onPress={() => s.setActionsOpen(true)}
         />
         <ActionButton
           icon={selected?.pinned ? PinOff : Pin}

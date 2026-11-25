@@ -7,6 +7,8 @@
   --wincy-selected: rgb(0 0 0 / 0.055);
   --wincy-card: rgb(255 255 255 / 0.55);
   --wincy-field: rgb(255 255 255 / 0.7);
+  /* Panels over the palette (quick actions): near-opaque so the list behind doesn't bleed through. */
+  --wincy-popover: rgb(252 252 252 / 0.97);
   --font-sans: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
 }
@@ -17,6 +19,7 @@
   --wincy-selected: rgb(255 255 255 / 0.065);
   --wincy-card: rgb(255 255 255 / 0.035);
   --wincy-field: rgb(255 255 255 / 0.06);
+  --wincy-popover: rgb(44 44 44 / 0.97);
 }
 
 /* Transparent all the way down so the native Mica/Acrylic material shows through. */

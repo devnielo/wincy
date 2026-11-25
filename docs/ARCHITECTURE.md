@@ -28,7 +28,7 @@ Repository: `https://github.com/devnielo/wincy` (website: `https://devnielo.gith
 | file | responsibility |
 |---|---|
 | `main.rs` | calls `wincy_lib::run()` (windows_subsystem = "windows") |
-| `lib.rs` | builder, plugins (single-instance, log, global-shortcut, autostart, updater, process, opener), setup, command registration |
+| `lib.rs` | builder, plugins (single-instance, log, global-shortcut, autostart, updater, process, opener, dialog), setup (builds both windows from `tauri.conf.json`, which has `create: false`, so the WebView2 profile folder can follow `paths.rs`), command registration |
 | `db.rs` | SQLite via `rusqlite` (bundled). Schema, queries, dedupe, trimming. `secure_delete=ON`, and a WAL checkpoint after `delete_clip`/`clear_history`, so deleted clips are overwritten on disk. A database that fails to open is renamed `wincy.db.corrupt-<unix secs>` (with its `-wal`/`-shm`) and a fresh one is created |
 | `clipboard.rs` | Win32 listener (`AddClipboardFormatListener` on a hidden message-only window, own thread — **no polling**), reading formats, privacy filters, writing back to the clipboard |
 | `detect.rs` | content-kind detection (pure fn + unit tests) |
@@ -38,6 +38,10 @@ Repository: `https://github.com/devnielo/wincy` (website: `https://devnielo.gith
 | `settings.rs` | `settings.json` in app config dir; load/save; apply (shortcut, autostart, trimming) |
 | `ocr.rs` | Windows OCR worker thread and startup backfill (see v0.2.0) |
 | `status.rs` | `Status` (`get_status`, `status-changed`), Windows accent color |
+| `paths.rs` | every data path (DB, images, settings, logs, WebView2 profile): AppData, or `<exe dir>data` in portable mode (see v0.3.0) |
+| `shortcuts.rs` | global shortcuts for pins and snippets: validation (reserved combos, uniqueness), `sync()` registration, dispatch of a pressed shortcut (see v0.3.0) |
+| `snippets.rs` | snippet save/delete/paste and variable expansion (pure fn + tests) |
+| `transfer.rs` | export / import of history and snippets (see v0.3.0) |
 | `commands.rs` | all `#[tauri::command]`s listed below |
 
 ### Capture rules
@@ -112,7 +116,7 @@ export interface Settings {
 
 | command | args | returns |
 |---|---|---|
-| `get_clips` | — | `ClipSummary[]` ordered: pinned first (by `updatedAt` desc), then the rest by `updatedAt` desc |
+| `get_clips` | — | `{ clips: ClipSummary[], total }` since v0.3.0 (see there); `clips` ordered: pinned first (by `updatedAt` desc), then the rest by `updatedAt` desc |
 | `get_clip` | `{ id }` | `Clip` |
 | `paste_clip` | `{ id, plain }` | `void` (bumps `updatedAt`, `useCount`) |
 | `toggle_pin` | `{ id }` | `boolean` new pinned state |
@@ -123,7 +127,7 @@ export interface Settings {
 | `hide_window` | — | `void` (restores previous foreground window, no paste) |
 | `get_paused` / `set_paused` | — / `{ paused }` | `boolean` |
 | `open_data_dir` | — | `void` (opens app data folder in Explorer) |
-| `set_preview` | `{ id: number \| null }` | `void` — `id`: position + show the preview panel without activating it and emit `preview-clip` to it; `null`: hide it |
+| `set_preview` | `{ id: number \| null }` | `void` — `id`: position + show the preview panel without activating it and emit `preview-clip` to it; `null`: hide it. A negative id is the snippet `-id` (v0.3.0): the backend only forwards it, the preview window loads it with `get_snippets` |
 
 Errors are returned as `string`.
 
@@ -260,3 +264,81 @@ The native Mica/Acrylic backdrop follows the **app** theme: on settings change c
 ### Search: filter by source app
 Query tokens `app:<term>` (case-insensitive, may be repeated = OR) keep only clips whose `sourceApp` (without `.exe`) contains `<term>`; the rest of the query goes to Fuse.
 Parser is a pure function with tests. Example: `app:code debounce`, `app:chrome app:edge`.
+
+## v0.3.0 additions (binding)
+
+### 1. Quick actions (Ctrl+K)
+Ctrl+K (and a footer **Actions** button) opens an action list over the palette for the selected clip, filterable by typing, ↑/↓ + Enter to run, Esc to close.
+Text transforms run in the frontend (pure functions in `src/lib/transforms.ts`, unit-tested) and paste the result as **plain text** with `paste_text`
+(the original clip is not modified; the transformed text is an own write and is not captured):
+UPPERCASE, lowercase, Title Case, Trim, Collapse whitespace, Remove line breaks, Format JSON, Minify JSON, Base64 encode, Base64 decode, URL encode, URL decode
+(only show actions that apply: e.g. JSON actions only when the text parses as JSON; decode actions only when decoding succeeds and yields valid UTF-8 text).
+Kind-specific: url → **Open in browser** (opener `openUrl`, http/https/mailto only); files → **Show in Explorer** (opener `revealItemInDir`, first file);
+color → **Copy as HEX / RGB / HSL** (pastes that format). Any text clip → **Save as snippet**. Pinned clip → **Set shortcut…**.
+
+| command | args | returns |
+|---|---|---|
+| `paste_text` | `{ text }` | `void` — same paste flow as `paste_clip` (hide, restore focus, wait modifiers, Ctrl+V) with plain text; max 1 MB |
+
+### 2. Snippets (templates)
+New table `snippets(id INTEGER PK, name TEXT NOT NULL, body TEXT NOT NULL, shortcut TEXT NULL UNIQUE, created_at, updated_at)` (schema `user_version` 3).
+```ts
+interface Snippet { id: number; name: string; body: string; shortcut: string | null; createdAt: number; updatedAt: number }
+```
+Variables expanded at paste time (backend, pure fn + tests): `{date}` (local short date), `{time}` (HH:MM), `{datetime}`, `{clipboard}` (current clipboard text), `{{` → `{`.
+Unknown `{name}` is left as is. Palette: a new kind filter **Snippets** (last in the Tab cycle, icon `Braces` or `FileText`); rows show the name and a body preview; Enter pastes the expanded body (plain text);
+search covers name + body. Settings → **Snippets** section: list, add, edit (name, body, shortcut recorder), delete with confirm.
+
+| command | args | returns |
+|---|---|---|
+| `get_snippets` | — | `Snippet[]` (by name) |
+| `save_snippet` | `{ snippet: { id: number \| null, name, body, shortcut } }` | `Snippet` (validates name 1..80 chars, body 1..100 000 chars, shortcut via the same rules as the main shortcut and unique across main/pins/snippets) |
+| `delete_snippet` | `{ id }` | `void` |
+| `paste_snippet` | `{ id }` | `void` |
+Event `snippets-changed` (no payload).
+
+### 3. Global shortcuts for pinned clips
+`ClipSummary.shortcut: string | null` (DB column `clips.shortcut TEXT NULL UNIQUE`, same migration). Only pinned clips may have one; unpinning or deleting clears it.
+Pressing it pastes that clip directly into the focused app **without showing the palette** (same paste flow; previous foreground = current foreground window).
+All pin and snippet shortcuts are registered at startup and on change; a shortcut that fails to register is reported in `Status.shortcutConflicts: string[]` (human-readable, e.g. `"Alt+Shift+M (pin)"`) and shown in Settings.
+The recorder rejects the same reserved combos as the main shortcut and anything already used by Wincy. The backend also rejects a pin/snippet shortcut without Ctrl, Alt or Win (F-keys excepted) and never registers such a stored one.
+A pin/snippet shortcut pressed while a Wincy window is in front is ignored and emits `shortcut-in-use` (no payload): the WebView never sees a registered combo, so the recorder shows "already used by Wincy" on that event. Pastes from shortcuts run one at a time.
+Row UI: a small keycap with the shortcut next to the pin icon.
+
+| command | args | returns |
+|---|---|---|
+| `set_clip_shortcut` | `{ id, shortcut: string \| null }` | `void` (error if not pinned, invalid, or in use) |
+
+### 4. Export / import
+Settings → Data: **Export…** and **Import…** using `tauri-plugin-dialog` save/open dialogs (filter `*.wincy.json`).
+Format: `{ "format": "wincy-export", "version": 1, "exportedAt": <ms>, "clips": [ … ], "snippets": [ … ] }`; each clip has kind, text, html, files, sourceApp, pinned, shortcut, createdAt, updatedAt, useCount, ocrText,
+and for images `imagePng` as base64 only when the user ticks **Include images** (default on). Settings are NOT exported (machine-specific).
+Import validates strictly (format/version, types, max file 512 MB, max 100 000 clips, base64 decodes to a real PNG), merges by content hash (existing clips keep their data; pinned/shortcut from the file win only if the existing one is unpinned),
+skips secrets when `ignoreSecrets`, recomputes kinds via `detect.rs`, regenerates thumbnails, re-queues OCR for images without text, then trims and emits `clips-changed`/`snippets-changed`.
+
+| command | args | returns |
+|---|---|---|
+| `export_history` | `{ path, includeImages }` | `{ clips: number, snippets: number }` |
+| `import_history` | `{ path }` | `{ added: number, merged: number, skipped: number, snippets: number }` |
+
+### 5. Portable build
+If a file named `portable` exists next to `wincy.exe`, all data (DB, images, settings, logs, WebView2 profile) lives in `<exe dir>\data\` instead of AppData — route every path through one helper `paths.rs` (`data_dir`, `config_dir`, `log_dir`); set the WebView2 user data folder accordingly.
+In portable mode: "Start with Windows" is hidden/disabled (and autostart is never registered), auto-update is replaced by "a new version is available → open download page" (the updater can't replace a portable exe in place).
+`Status.portable: boolean`. Release workflow also uploads `Wincy_<version>_x64-portable.zip` containing `wincy.exe`, the `portable` marker and a short `README.txt` (EN/ES).
+
+### 6. Large histories: full-text index
+FTS5 table `clips_fts(text, ocr_text, source_app, content='clips', content_rowid='id', tokenize='unicode61 remove_diacritics 2')` kept in sync by triggers (same migration; backfilled once).
+`get_clips` returns `{ clips: ClipSummary[], total: number }`: all pinned + the newest 2 000 unpinned. When `total` exceeds what was loaded, the frontend also calls
+`search_clips { query, limit: 200 }` (FTS5 prefix query over the words that are not `app:` tokens; `app:` filters applied in SQL) and merges those results (dedupe by id) after the Fuse results.
+Below 2 000 clips behaviour is unchanged (Fuse only).
+
+| command | args | returns |
+|---|---|---|
+| `search_clips` | `{ query, limit }` | `ClipSummary[]` (limit clamped to 1..1000; clips `get_clips` did not load first, then pinned first and `updatedAt` desc; `app:x.exe` means `app:x`; query max 4096 bytes) |
+
+### Capabilities and boundary rules
+- Palette (`main`): the opener is limited to `opener:allow-open-url` for `http`, `https` and `mailto` URLs plus `opener:allow-reveal-item-in-dir` (no `openPath`, no other schemes); `dialog:allow-save` and `dialog:allow-open` for export/import. The preview window keeps events + log only.
+- `export_history` / `import_history` accept only absolute paths ending in `.json` (any case); the save dialog appends `.wincy.json` when the typed name has none.
+- An empty `shortcut` string in `save_snippet` / `set_clip_shortcut` means none. The backend rejects reserved combos and duplicates (case and modifier order ignored) for pins and snippets; changing the main shortcut is refused while a pin or snippet uses it.
+- Export refuses to write a file over the 512 MB import limit (suggests exporting without images).
+- Export with **Include images** off still lists image clips (with `ocrText`, without `imagePng`); importing them counts them as `skipped`.

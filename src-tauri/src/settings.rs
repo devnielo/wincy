@@ -1,4 +1,4 @@
-//! User settings persisted as `<appConfigDir>/settings.json`.
+//! User settings persisted as `<configDir>/settings.json` (see `paths`).
 
 use std::path::{Path, PathBuf};
 
@@ -7,7 +7,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
-use crate::{AppState, commands, db, ocr, status, tray, window};
+use crate::{AppState, commands, db, ocr, paths, shortcuts, status, tray, window};
 
 pub const MAX_ITEMS_RANGE: std::ops::RangeInclusive<u32> = 50..=10_000;
 pub const MAX_EXPIRE_DAYS: u32 = 365;
@@ -129,9 +129,7 @@ impl Settings {
 }
 
 fn path(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(app
-        .path()
-        .app_config_dir()
+    Ok(paths::config_dir(app)
         .map_err(|e| e.to_string())?
         .join("settings.json"))
 }
@@ -220,6 +218,17 @@ pub fn save(app: &AppHandle, new: Settings) -> Result<Settings, String> {
     let new = new.validated()?;
     let state = app.state::<AppState>();
     let old = state.settings.lock().unwrap().clone();
+    if new.shortcut != old.shortcut
+        && let Ok(shortcut) = new.shortcut.parse::<Shortcut>()
+    {
+        let conn = state.db.lock().unwrap();
+        if shortcuts::taken(&conn, "", &shortcut, None).map_err(|e| e.to_string())? {
+            return Err(format!(
+                "{} is already used by a pinned clip or a snippet",
+                new.shortcut
+            ));
+        }
+    }
 
     let shortcut_error = match swap_shortcut(app, Some(&old.shortcut), &new.shortcut) {
         Ok(()) => None,
@@ -234,7 +243,8 @@ pub fn save(app: &AppHandle, new: Settings) -> Result<Settings, String> {
     *state.settings.lock().unwrap() = new.clone();
     status::update(app, |s| s.shortcut_error = shortcut_error);
 
-    if old.launch_at_startup != new.launch_at_startup {
+    // Portable: the registry entry would point at a removable or moved exe.
+    if old.launch_at_startup != new.launch_at_startup && !paths::is_portable() {
         sync_autostart(app, new.launch_at_startup);
     }
     if new.max_items < old.max_items {
@@ -259,6 +269,8 @@ pub fn save(app: &AppHandle, new: Settings) -> Result<Settings, String> {
     if new.ocr_images && !old.ocr_images {
         ocr::backfill(app);
     }
+    // A pin/snippet shortcut may have clashed with the old palette shortcut.
+    shortcuts::sync(app);
     tray::refresh(app);
     let _ = app.emit("settings-changed", &new);
     Ok(new)

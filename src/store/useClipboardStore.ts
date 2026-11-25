@@ -3,13 +3,22 @@ import type { Update } from "@tauri-apps/plugin-updater";
 import { create } from "zustand";
 import { api, errorMessage } from "../api";
 import { matchesApp, parseQuery } from "../lib/query";
-import type { ClipKind, ClipSummary, Settings, Status, View } from "../types";
+import type { ClipKind, ClipSummary, Settings, Snippet, Status, View } from "../types";
 
-export type KindFilter = "all" | ClipKind;
-export const KIND_FILTERS: KindFilter[] = ["all", "text", "url", "color", "code", "image", "files"];
+export type KindFilter = "all" | ClipKind | "snippets";
+export const KIND_FILTERS: KindFilter[] = ["all", "text", "url", "color", "code", "image", "files", "snippets"];
+const FTS_LIMIT = 200;
 
 interface State {
   clips: ClipSummary[];
+  /** All clips in the database; more than `clips.length` means search must also ask the full-text index. */
+  total: number;
+  /** search_clips results for `ftsQuery`, merged after the Fuse results. */
+  fts: ClipSummary[];
+  ftsQuery: string;
+  snippets: Snippet[];
+  /** The quick actions overlay (Ctrl+K) is open over the palette. */
+  actionsOpen: boolean;
   query: string;
   kindFilter: KindFilter;
   selectedIndex: number;
@@ -28,6 +37,8 @@ interface State {
   shownCount: number;
 
   refresh: () => Promise<void>;
+  loadSnippets: () => Promise<void>;
+  setActionsOpen: (open: boolean) => void;
   onShown: (view: View) => void;
   setQuery: (query: string) => void;
   cycleKind: (step: 1 | -1) => void;
@@ -52,7 +63,8 @@ interface State {
 }
 
 let fuseCache: { clips: ClipSummary[]; fuse: Fuse<ClipSummary> } | null = null;
-let filterCache: { clips: ClipSummary[]; query: string; kind: KindFilter; result: ClipSummary[] } | null = null;
+let filterCache: { clips: ClipSummary[]; fts: ClipSummary[]; query: string; kind: KindFilter; result: ClipSummary[] } | null = null;
+let snippetCache: { snippets: Snippet[]; query: string; fuse: Fuse<Snippet>; result: Snippet[] } | null = null;
 
 function fuseFor(clips: ClipSummary[]): Fuse<ClipSummary> {
   if (fuseCache?.clips !== clips) {
@@ -69,31 +81,83 @@ function fuseFor(clips: ClipSummary[]): Fuse<ClipSummary> {
   return fuseCache.fuse;
 }
 
-/** Visible list. Returns a stable reference while its inputs are unchanged (safe as a selector). */
-export function selectFiltered(s: Pick<State, "clips" | "query" | "kindFilter">): ClipSummary[] {
+type FilterInput = Pick<State, "clips" | "fts" | "ftsQuery" | "query" | "kindFilter">;
+
+/** Visible clips (none in the snippets filter). Returns a stable reference while its inputs are unchanged (safe as a selector). */
+export function selectFiltered(s: FilterInput): ClipSummary[] {
   const query = s.query.trim();
+  // Index results for an older query must never show.
+  const fts = s.ftsQuery === query ? s.fts : NO_CLIPS;
   const c = filterCache;
-  if (c && c.clips === s.clips && c.query === query && c.kind === s.kindFilter) return c.result;
+  if (c && c.clips === s.clips && c.fts === fts && c.query === query && c.kind === s.kindFilter) return c.result;
   const { apps, text } = parseQuery(query);
-  const base = text ? fuseFor(s.clips).search(text).map((r) => r.item) : s.clips;
+  let base = text ? fuseFor(s.clips).search(text).map((r) => r.item) : s.clips;
+  if (fts.length) {
+    const seen = new Set(base.map((clip) => clip.id));
+    base = [...base, ...fts.filter((clip) => !seen.has(clip.id))];
+  }
   const result = base.filter((clip) => (s.kindFilter === "all" || clip.kind === s.kindFilter) && matchesApp(clip.sourceApp, apps));
-  filterCache = { clips: s.clips, query, kind: s.kindFilter, result };
+  filterCache = { clips: s.clips, fts, query, kind: s.kindFilter, result };
   return result;
 }
+const NO_CLIPS: ClipSummary[] = [];
+
+/** Visible snippets (only in the snippets filter); search covers name and body. */
+export function selectSnippets(s: Pick<State, "snippets" | "query" | "kindFilter">): Snippet[] {
+  if (s.kindFilter !== "snippets") return NO_SNIPPETS;
+  const query = s.query.trim();
+  const c = snippetCache;
+  if (c?.snippets === s.snippets && c.query === query) return c.result;
+  const fuse = c?.snippets === s.snippets ? c.fuse : new Fuse(s.snippets, { keys: ["name", "body"], threshold: 0.35, ignoreLocation: true });
+  const { apps, text } = parseQuery(query);
+  // Snippets have no source app, so an app: filter matches none.
+  const result = apps.length ? NO_SNIPPETS : text ? fuse.search(text).map((r) => r.item) : s.snippets;
+  snippetCache = { snippets: s.snippets, query, fuse, result };
+  return result;
+}
+const NO_SNIPPETS: Snippet[] = [];
 
 export const selectSelected = (s: State): ClipSummary | undefined => selectFiltered(s)[s.selectedIndex];
+export const selectSelectedSnippet = (s: State): Snippet | undefined => selectSnippets(s)[s.selectedIndex];
+/** Rows in the visible list, clips or snippets. */
+export const selectCount = (s: State): number =>
+  s.kindFilter === "snippets" ? selectSnippets(s).length : selectFiltered(s).length;
 
 const clampIndex = (index: number, length: number) => Math.max(0, Math.min(index, length - 1));
 
 let refreshSeq = 0;
+let ftsSeq = 0;
+let ftsTimer: ReturnType<typeof setTimeout> | undefined;
 /** palette-shown asks for the top row; other refreshes keep the selected clip selected. */
 let selectTopOnRefresh = false;
 
 export const useClipboardStore = create<State>()((set, get) => {
   const fail = (e: unknown) => set({ error: errorMessage(e) });
 
+  /** Large histories: after a quiet ~150 ms, also ask the full-text index for clips that weren't loaded. */
+  const searchIndex = () => {
+    clearTimeout(ftsTimer);
+    const seq = ++ftsSeq; // also invalidates any request still in flight
+    const { query, total, clips } = get();
+    const q = query.trim();
+    const { apps, text } = parseQuery(q);
+    // An app:-only query also searches the index: old clips from that app were not loaded.
+    if (total <= clips.length || (!text && apps.length === 0)) return;
+    ftsTimer = setTimeout(() => {
+      api.searchClips(q, FTS_LIMIT).then(
+        (fts) => seq === ftsSeq && set({ fts, ftsQuery: q }),
+        () => undefined, // already logged; the loaded clips still show
+      );
+    }, 150);
+  };
+
   return {
     clips: [],
+    total: 0,
+    fts: [],
+    ftsQuery: "",
+    snippets: [],
+    actionsOpen: false,
     query: "",
     kindFilter: "all",
     selectedIndex: 0,
@@ -110,29 +174,46 @@ export const useClipboardStore = create<State>()((set, get) => {
     refresh: async () => {
       const seq = ++refreshSeq;
       try {
-        const clips = await api.getClips();
+        const { clips, total } = await api.getClips();
         if (seq !== refreshSeq) return; // a newer refresh is in flight
         set((s) => {
-          // Pins and new copies reorder the list: follow the selected clip, not its row number.
-          const prevId = selectTopOnRefresh ? undefined : selectSelected(s)?.id;
+          const top = selectTopOnRefresh;
           selectTopOnRefresh = false;
+          if (s.kindFilter === "snippets") return { clips, total, selectedIndex: top ? 0 : s.selectedIndex };
+          // Pins and new copies reorder the list: follow the selected clip, not its row number.
+          const prevId = top ? undefined : selectSelected(s)?.id;
           const list = selectFiltered({ ...s, clips });
           const i = prevId === undefined ? -1 : list.findIndex((c) => c.id === prevId);
-          return { clips, selectedIndex: i >= 0 ? i : clampIndex(s.selectedIndex, list.length) };
+          return { clips, total, selectedIndex: i >= 0 ? i : clampIndex(s.selectedIndex, list.length) };
         });
+        if (get().query) searchIndex(); // the index changed too
       } catch (e) {
         fail(e);
       }
     },
 
+    loadSnippets: async () => {
+      try {
+        const snippets = await api.getSnippets();
+        set((s) => ({ snippets, selectedIndex: s.kindFilter === "snippets" ? clampIndex(s.selectedIndex, snippets.length) : s.selectedIndex }));
+      } catch (e) {
+        fail(e);
+      }
+    },
+
+    setActionsOpen: (actionsOpen) => set({ actionsOpen }),
+
     onShown: (view) => {
-      set((s) => ({ query: "", kindFilter: "all", selectedIndex: 0, view, error: null, shownCount: s.shownCount + 1 }));
+      set((s) => ({ query: "", kindFilter: "all", selectedIndex: 0, view, error: null, actionsOpen: false, shownCount: s.shownCount + 1 }));
       selectTopOnRefresh = true;
       void get().refresh();
       void get().refreshPaused();
     },
 
-    setQuery: (query) => set({ query, selectedIndex: 0 }),
+    setQuery: (query) => {
+      set({ query, selectedIndex: 0 });
+      searchIndex();
+    },
 
     cycleKind: (step) =>
       set((s) => {
@@ -142,17 +223,20 @@ export const useClipboardStore = create<State>()((set, get) => {
 
     setKind: (kindFilter) => set({ kindFilter, selectedIndex: 0 }),
 
-    select: (index) => set((s) => ({ selectedIndex: clampIndex(index, selectFiltered(s).length) })),
+    select: (index) => set((s) => ({ selectedIndex: clampIndex(index, selectCount(s)) })),
 
     setView: (view) => set({ view, error: null }),
 
     togglePreview: () => set((s) => ({ showPreview: !s.showPreview })),
 
     paste: async (index, plain) => {
-      const clip = selectFiltered(get())[index];
-      if (!clip) return;
+      const s = get();
+      const snippet = selectSnippets(s)[index];
+      const clip = selectFiltered(s)[index];
       try {
-        await api.pasteClip(clip.id, plain);
+        // Snippets always paste as plain text (the backend expands their variables).
+        if (snippet) await api.pasteSnippet(snippet.id);
+        else if (clip) await api.pasteClip(clip.id, plain);
       } catch (e) {
         fail(e);
       }

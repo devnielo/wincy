@@ -41,13 +41,17 @@ Confirmed functionality (ground truth: README.md, docs/ARCHITECTURE.md, `src/`):
 - Captures text, rich text (pasteable as plain text with Shift+Enter), URLs, colors, code, images (stored as PNG) and file lists; kind detected automatically, colors shown as swatches, images as thumbnails.
 - Fuzzy search across content, source app and kind; kind filter icons in the search bar and Tab / Shift+Tab to cycle them.
 - Pins (Ctrl+P) stay on top and are never trimmed; Alt+1..9 pastes the Nth visible item.
+- Quick actions (Ctrl+K): case changes, trim, JSON format/minify, Base64 and URL encode/decode, open link, show file in Explorer, paste a color as HEX/RGB/HSL; results paste as plain text.
+- Snippets with `{date}`, `{time}`, `{datetime}` and `{clipboard}` variables; global shortcuts for pinned clips and snippets (paste without opening the palette).
+- Export / import of history and snippets to a `.wincy.json` file; a full-text index keeps search useful beyond the newest 2,000 clips.
+- Portable .zip: data in a `data` folder next to `wincy.exe`, no autostart, no self-update (opens the download page instead).
 - History size 1,000 items by default, configurable from 50 to 10,000; stored in a local SQLite database in the user profile.
 - Privacy: skips content marked with `ExcludeClipboardContentFromMonitorProcessing`, `Clipboard Viewer Ignore` or `CanIncludeInClipboardHistory = 0`; default ignore list (Bitwarden, 1Password, KeePass, KeePassXC, Enpass, Dashlane, LastPass, NordPass, Proton Pass), user-extendable by exe name; pause capture from the tray.
 - Settings: shortcut, history size, image capture on/off, Enter copies instead of pasting, autostart, update checks, ignored apps, open data folder.
 - Signed, verified auto-updates from GitHub Releases (the only network request; can be turned off). No telemetry, no analytics, no account, no cloud sync.
 - Built with Tauri v2 + Rust + React on the system WebView2; Mica on Windows 11, Acrylic on Windows 10; light and dark themes; English and Spanish UI.
 
-Not available (must not be claimed): winget / Scoop packages, portable .zip, code-signing certificate, sync between machines, macOS/Linux builds.
+Not available (must not be claimed): winget / Scoop packages, code-signing certificate, sync between machines, macOS/Linux builds.
 
 Website: Astro static site, EN at `/` and ES at `/es/`, base `/wincy`, deployed to GitHub Pages. Every string exists in both `src/i18n/en.ts` and `src/i18n/es.ts`.
 

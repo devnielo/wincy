@@ -7,10 +7,19 @@ use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
 
-use crate::db::{self, Clip, ClipSummary};
+use serde::Serialize;
+
+use crate::db::{self, Clip, ClipSummary, ShortcutTarget, Snippet};
 use crate::settings::{self, Settings};
+use crate::snippets::{self, SnippetInput};
 use crate::status::Status;
-use crate::{AppState, LOG_FILE, clipboard, ocr, paste, tray, window};
+use crate::transfer::{self, ExportResult, ImportResult};
+use crate::{AppState, LOG_FILE, clipboard, ocr, paste, paths, shortcuts, tray, window};
+
+/// Unpinned clips `get_clips` loads; larger histories are searched with `search_clips`.
+const LOADED_UNPINNED: u32 = 2000;
+const MAX_SEARCH_LIMIT: u32 = 1000;
+const MAX_QUERY_BYTES: usize = 4096;
 
 type Res<T> = Result<T, String>;
 
@@ -22,11 +31,38 @@ fn changed(app: &AppHandle) {
     let _ = app.emit("clips-changed", ());
 }
 
+#[derive(Serialize)]
+pub struct ClipPage {
+    clips: Vec<ClipSummary>,
+    /// All clips in the database, pinned included.
+    total: i64,
+}
+
 #[tauri::command]
-pub async fn get_clips(app: AppHandle) -> Res<Vec<ClipSummary>> {
+pub async fn get_clips(app: AppHandle) -> Res<ClipPage> {
     let state = app.state::<AppState>();
     let conn = state.db.lock().unwrap();
-    db::list(&conn, &state.images_dir).map_err(err)
+    Ok(ClipPage {
+        clips: db::list(&conn, &state.images_dir, LOADED_UNPINNED).map_err(err)?,
+        total: db::count(&conn).map_err(err)?,
+    })
+}
+
+#[tauri::command]
+pub async fn search_clips(app: AppHandle, query: String, limit: u32) -> Res<Vec<ClipSummary>> {
+    if query.len() > MAX_QUERY_BYTES {
+        return Err("The search is too long".into());
+    }
+    let state = app.state::<AppState>();
+    let conn = state.db.lock().unwrap();
+    db::search(
+        &conn,
+        &state.images_dir,
+        &query,
+        limit.clamp(1, MAX_SEARCH_LIMIT),
+        LOADED_UNPINNED,
+    )
+    .map_err(err)
 }
 
 #[tauri::command]
@@ -47,14 +83,86 @@ pub async fn paste_clip(app: AppHandle, id: i64, plain: bool) -> Res<()> {
 }
 
 #[tauri::command]
+pub async fn paste_text(app: AppHandle, text: String) -> Res<()> {
+    tauri::async_runtime::spawn_blocking(move || paste::paste_text(&app, &text))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
 pub async fn toggle_pin(app: AppHandle, id: i64) -> Res<bool> {
     let state = app.state::<AppState>();
     let pinned = {
         let conn = state.db.lock().unwrap();
         db::toggle_pin(&conn, id).map_err(err)?
     };
+    if !pinned {
+        shortcuts::sync(&app);
+    }
     changed(&app);
     Ok(pinned)
+}
+
+#[tauri::command]
+pub async fn set_clip_shortcut(app: AppHandle, id: i64, shortcut: Option<String>) -> Res<()> {
+    let state = app.state::<AppState>();
+    let main = state.settings.lock().unwrap().shortcut.clone();
+    {
+        let conn = state.db.lock().unwrap();
+        let shortcut = shortcut
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| shortcuts::validate(&conn, &main, s, Some(ShortcutTarget::Clip(id))))
+            .transpose()?;
+        if !db::set_clip_shortcut(&conn, id, shortcut.as_deref()).map_err(err)? {
+            return Err("Only pinned clips can have a shortcut".into());
+        }
+    }
+    shortcuts::sync(&app);
+    changed(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_snippets(app: AppHandle) -> Res<Vec<Snippet>> {
+    let state = app.state::<AppState>();
+    let conn = state.db.lock().unwrap();
+    db::snippets(&conn).map_err(err)
+}
+
+#[tauri::command]
+pub async fn save_snippet(app: AppHandle, snippet: SnippetInput) -> Res<Snippet> {
+    snippets::save(&app, snippet)
+}
+
+#[tauri::command]
+pub async fn delete_snippet(app: AppHandle, id: i64) -> Res<()> {
+    snippets::delete(&app, id)
+}
+
+#[tauri::command]
+pub async fn paste_snippet(app: AppHandle, id: i64) -> Res<()> {
+    tauri::async_runtime::spawn_blocking(move || snippets::paste(&app, id))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+pub async fn export_history(
+    app: AppHandle,
+    path: String,
+    include_images: bool,
+) -> Res<ExportResult> {
+    tauri::async_runtime::spawn_blocking(move || transfer::export(&app, &path, include_images))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+pub async fn import_history(app: AppHandle, path: String) -> Res<ImportResult> {
+    tauri::async_runtime::spawn_blocking(move || transfer::import(&app, &path))
+        .await
+        .map_err(err)?
 }
 
 #[tauri::command]
@@ -67,11 +175,14 @@ pub async fn delete_clip(app: AppHandle, id: i64) -> Res<()> {
         images
     };
     db::remove_images(&state.images_dir, &images);
+    shortcuts::sync(&app);
     changed(&app);
     Ok(())
 }
 
-/// Deletes all unpinned clips (also used by the tray menu).
+/// Deletes all unpinned clips (also used by the tray menu). Shortcuts need no sync:
+/// only pinned clips have one (and the tray calls this on the main thread, where `sync`
+/// could deadlock waiting for the main thread).
 pub fn clear(app: &AppHandle) -> Res<()> {
     let state = app.state::<AppState>();
     let images = {
@@ -163,7 +274,7 @@ pub async fn set_paused(app: AppHandle, paused: bool) -> Res<bool> {
 
 #[tauri::command]
 pub async fn open_data_dir(app: AppHandle) -> Res<()> {
-    let dir = app.path().app_data_dir().map_err(err)?;
+    let dir = paths::data_dir(&app).map_err(err)?;
     app.opener()
         .open_path(dir.to_string_lossy(), None::<&str>)
         .map_err(err)
@@ -171,7 +282,7 @@ pub async fn open_data_dir(app: AppHandle) -> Res<()> {
 
 #[tauri::command]
 pub async fn open_log_dir(app: AppHandle) -> Res<()> {
-    let dir = app.path().app_log_dir().map_err(err)?;
+    let dir = paths::log_dir(&app).map_err(err)?;
     std::fs::create_dir_all(&dir).map_err(err)?;
     app.opener()
         .open_path(dir.to_string_lossy(), None::<&str>)
@@ -202,12 +313,14 @@ pub async fn copy_diagnostics(app: AppHandle) -> Res<String> {
     let lines: Vec<&str> = log.lines().collect();
     let tail = lines[lines.len().saturating_sub(200)..].join("\n");
     let text = format!(
-        "Wincy {}\nWindows {}\nOCR: {}\nClips: {clips}\nShortcut error: {}\n\
-         Settings: {settings_json:#}\n\nLast log lines:\n{tail}\n",
+        "Wincy {}{}\nWindows {}\nOCR: {}\nClips: {clips}\nShortcut error: {}\n\
+         Shortcut conflicts: {:?}\nSettings: {settings_json:#}\n\nLast log lines:\n{tail}\n",
         app.package_info().version,
+        if status.portable { " (portable)" } else { "" },
         windows_version(),
         ocr::availability(),
         status.shortcut_error.as_deref().unwrap_or("none"),
+        status.shortcut_conflicts,
     );
     clipboard::write_text(&text)?;
     Ok(text)

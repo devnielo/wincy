@@ -1,4 +1,4 @@
-import { Code, Files, Image, Layers, Link, Palette, Type, type LucideIcon } from "lucide-react";
+import { Braces, Code, Files, Image, Layers, Link, Palette, Type, type LucideIcon } from "lucide-react";
 import type { KindFilter } from "../store/useClipboardStore";
 
 export const KIND_ICONS: Record<KindFilter, LucideIcon> = {
@@ -9,4 +9,5 @@ export const KIND_ICONS: Record<KindFilter, LucideIcon> = {
   code: Code,
   image: Image,
   files: Files,
+  snippets: Braces,
 };

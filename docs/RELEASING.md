@@ -1,6 +1,6 @@
 # Releasing Wincy
 
-Releases are built by GitHub Actions ([`.github/workflows/release.yml`](../.github/workflows/release.yml)) when a `vX.Y.Z` tag is pushed. The workflow builds the signed NSIS installer and creates a **draft** GitHub Release with the installer, its `.sig` signature and `latest.json` for the auto-updater.
+Releases are built by GitHub Actions ([`.github/workflows/release.yml`](../.github/workflows/release.yml)) when a `vX.Y.Z` tag is pushed. The workflow builds the signed NSIS installer and creates a **draft** GitHub Release with the installer, its `.sig` signature, `latest.json` for the auto-updater and the portable zip.
 
 ## One-time setup
 
@@ -38,7 +38,7 @@ Releases are built by GitHub Actions ([`.github/workflows/release.yml`](../.gith
    ```
 
 5. Wait for the **Release** workflow to finish. It creates a draft release named `Wincy vX.Y.Z`. With SignPath signing on, it first waits for you to approve the signing request in SignPath (link in the job log).
-6. Check the draft: the installer (`*_x64-setup.exe`), `*_x64-setup.exe.sig` and `latest.json` must be attached. Optionally paste the changelog section into the release notes.
+6. Check the draft: the installer (`*_x64-setup.exe`), `*_x64-setup.exe.sig`, `latest.json` and `*_x64-portable.zip` must be attached. Optionally paste the changelog section into the release notes.
 7. **Publish the draft.** Until it is published, the updater cannot see it: `releases/latest` only resolves to published, non-prerelease releases.
 
 To rebuild an existing tag, run the workflow manually (Actions → Release → Run workflow) and pick the **tag** in "Use workflow from". The job is skipped when run from a branch. This only works while the release is still a draft. Once it is published, delete the release (keep the tag) and re-run, or ship a new patch version.
@@ -51,5 +51,13 @@ To rebuild an existing tag, run the workflow manually (Actions → Release → R
 - The updater downloads the installer only if its signature verifies against the public key built into the app, then runs it in passive mode and restarts Wincy.
 
 With SignPath signing on, the workflow builds with `pnpm tauri build` instead of `tauri-action`, has the installer Authenticode-signed, then signs the **signed** installer again with `tauri signer sign` (Authenticode changes the bytes, so the first `.sig` would not verify) and writes `latest.json` itself. See [SIGNING.md](SIGNING.md#how-the-signed-release-runs).
+
+## Portable zip
+
+After the installer, the workflow packs `Wincy_X.Y.Z_x64-portable.zip` with `src-tauri/target/release/wincy.exe` (the SignPath-signed copy when signing is on), an empty `portable` marker file and [`packaging/portable/README.txt`](../packaging/portable/README.txt) (EN/ES), and uploads it to the same draft. The marker makes Wincy keep its data in `data\` next to the exe. The portable build has no auto-update: `latest.json` only points at the installer, and a portable copy only says a new version is out and opens the download page.
+
+winget stays **NSIS-only**: [`packaging/winget`](../packaging/winget/README.md) uses the `*_x64-setup.exe` installer, never the zip.
+
+## If a release is broken
 
 If a release turns out to be broken, publish a fixed higher version. Deleting a release makes `latest` fall back to the previous one, but users who already updated stay on the broken version until a newer one ships.

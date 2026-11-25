@@ -12,6 +12,10 @@ pub struct Status {
     pub shortcut_error: Option<String>,
     pub system_accent: Option<String>,
     pub log_dir: String,
+    /// Pin/snippet shortcuts that could not be registered, e.g. `"Alt+Shift+M (pin)"`.
+    pub shortcut_conflicts: Vec<String>,
+    /// Data lives next to the exe: no autostart, no in-place updates.
+    pub portable: bool,
 }
 
 /// Applies `change` and emits `status-changed` when it changed anything.

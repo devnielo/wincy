@@ -1,12 +1,14 @@
-import { Chip } from "@heroui/react";
+import { Chip, Kbd } from "@heroui/react";
 import { FileX } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api, errorMessage, fileSrc, onEvent } from "../api";
 import { useAppearance } from "../hooks/useAppearance";
 import { formatDate, useI18n } from "../i18n";
 import { parseColor, toHex, toHslString, toRgbString } from "../lib/color";
+import { snippetTokens } from "../lib/transforms";
 import { useClipboardStore } from "../store/useClipboardStore";
-import type { Clip } from "../types";
+import type { Clip, Snippet } from "../types";
+import { keycap } from "./ShortcutRecorder";
 
 function Body({ clip }: { clip: Clip }) {
   const { t } = useI18n();
@@ -112,6 +114,47 @@ function Details({ clip }: { clip: Clip }) {
   );
 }
 
+function SnippetPreview({ snippet }: { snippet: Snippet }) {
+  const { t, locale } = useI18n();
+  return (
+    <>
+      <div className="wincy-scroll flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
+        <h1 className="text-base font-semibold break-words select-text">{snippet.name}</h1>
+        <p className="text-[14px] leading-relaxed break-words whitespace-pre-wrap select-text">
+          {snippetTokens(snippet.body).map((token, i) =>
+            token.variable ? (
+              <mark key={i} className="rounded-sm bg-accent/15 px-0.5 font-mono text-[13px] text-accent">
+                {token.text}
+              </mark>
+            ) : (
+              token.text
+            ),
+          )}
+        </p>
+      </div>
+      <footer className="shrink-0 border-t border-(--wincy-stroke) px-4 py-2.5 text-xs">
+        <dl className="grid grid-cols-[auto_1fr_auto_1fr] gap-x-3 gap-y-1">
+          <Meta label={t("preview.shortcut")}>
+            {snippet.shortcut ? (
+              <Kbd variant="light" className="text-[11px] [word-spacing:normal]">
+                <Kbd.Content>{keycap(snippet.shortcut)}</Kbd.Content>
+              </Kbd>
+            ) : (
+              t("s.noShortcut")
+            )}
+          </Meta>
+          <Meta label={t("preview.edited")}>{formatDate(snippet.updatedAt, locale)}</Meta>
+          <Meta label={t("preview.chars")}>{snippet.body.length.toLocaleString(locale)}</Meta>
+          <Meta label={t("preview.lines")}>{snippet.body.split("\n").length.toLocaleString(locale)}</Meta>
+        </dl>
+        <p className="mt-2 text-muted">{t("preview.variables")}</p>
+      </footer>
+    </>
+  );
+}
+
+const previewId = (item: Clip | Snippet) => ("kind" in item ? item.id : -item.id);
+
 /**
  * The `preview` window: the full content of the clip the palette selected (`preview-clip`).
  * It never focuses itself; the backend keeps it non-activating.
@@ -121,7 +164,7 @@ export function PreviewWindow() {
   useAppearance();
   const [id, setId] = useState<number | null>(null);
   const [version, setVersion] = useState(0);
-  const [clip, setClip] = useState<Clip | null>(null);
+  const [clip, setClip] = useState<Clip | Snippet | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -131,6 +174,7 @@ export function PreviewWindow() {
       onEvent("preview-clip", (p) => setId(p.id)),
       // Re-copy, paste, pin and delete all change the shown clip; refetch it.
       onEvent("clips-changed", () => setVersion((v) => v + 1)),
+      onEvent("snippets-changed", () => setVersion((v) => v + 1)),
       onEvent("settings-changed", (s) => useClipboardStore.getState().setSettings(s)),
       onEvent("status-changed", (s) => useClipboardStore.getState().setStatus(s)),
     ];
@@ -144,7 +188,16 @@ export function PreviewWindow() {
   useEffect(() => {
     if (id === null) return;
     let cancelled = false;
-    api.getClip(id).then(
+    // Negative ids are snippets (see usePreviewSync); there is no single-snippet command.
+    const load =
+      id < 0
+        ? api.getSnippets().then((all) => {
+            const found = all.find((s) => s.id === -id);
+            if (!found) throw `snippet ${-id} not found`;
+            return found;
+          })
+        : api.getClip(id);
+    load.then(
       (c) => {
         if (cancelled) return;
         setClip(c);
@@ -154,7 +207,7 @@ export function PreviewWindow() {
         if (cancelled) return;
         // A refetch of the shown clip that was just deleted keeps it up until the palette sends
         // the next one; a new id that fails shows the empty state.
-        setClip((prev) => (prev?.id === id ? prev : null));
+        setClip((prev) => (prev && previewId(prev) === id ? prev : null));
         setError(errorMessage(e));
       },
     );
@@ -168,13 +221,15 @@ export function PreviewWindow() {
   return (
     <main className="wincy-surface flex h-full flex-col overflow-hidden text-foreground">
       {/* The previous clip stays up while the next one loads, so hovering down the list doesn't flash. */}
-      {clip ? (
+      {clip && "kind" in clip ? (
         <>
           <div key={clip.id} className="wincy-scroll min-h-0 flex-1 overflow-auto p-4">
             <Body clip={clip} />
           </div>
           <Details clip={clip} />
         </>
+      ) : clip ? (
+        <SnippetPreview key={-clip.id} snippet={clip} />
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted" role="status">
           {error ? (

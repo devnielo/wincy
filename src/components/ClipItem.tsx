@@ -1,11 +1,11 @@
 import { Kbd } from "@heroui/react";
-import { Pin, PinOff, Trash2 } from "lucide-react";
-import { memo } from "react";
+import { Braces, Pin, PinOff, Trash2 } from "lucide-react";
+import { memo, type ReactNode } from "react";
 import { fileSrc } from "../api";
 import { relativeTime, useI18n, type Translate } from "../i18n";
 import { parseColor, toRgbString } from "../lib/color";
 import { useClipboardStore } from "../store/useClipboardStore";
-import type { ClipSummary } from "../types";
+import type { ClipSummary, Snippet } from "../types";
 import { ActionButton } from "./ActionButton";
 import { KIND_ICONS } from "./kindIcons";
 
@@ -67,19 +67,37 @@ function RowActions({ pinned }: { pinned: boolean }) {
   );
 }
 
-interface Props {
-  clip: ClipSummary;
+function ShortcutKeycap({ shortcut }: { shortcut: string }) {
+  const { t } = useI18n();
+  return (
+    <Kbd variant="light" className="shrink-0 text-[10.5px] text-accent [word-spacing:normal]" aria-label={t("shortcutLabel", { shortcut })}>
+      <Kbd.Content>{shortcut}</Kbd.Content>
+    </Kbd>
+  );
+}
+
+function IndexKeycap({ index }: { index: number }) {
+  if (index >= 9) return null;
+  return (
+    <Kbd variant="light" className="shrink-0 text-[11px] text-muted [word-spacing:normal]" aria-hidden>
+      <Kbd.Content>Alt {index + 1}</Kbd.Content>
+    </Kbd>
+  );
+}
+
+interface RowProps {
+  id: string;
   index: number;
   selected: boolean;
   onHover: (index: number) => void;
   onPick: (index: number) => void;
+  children: ReactNode;
 }
 
-export const ClipItem = memo(function ClipItem({ clip, index, selected, onHover, onPick }: Props) {
-  const { t, locale } = useI18n();
+function Row({ id, index, selected, onHover, onPick, children }: RowProps) {
   return (
     <div
-      id={`clip-${clip.id}`}
+      id={id}
       role="option"
       aria-selected={selected}
       // Keep keyboard focus in the search input.
@@ -91,6 +109,47 @@ export const ClipItem = memo(function ClipItem({ clip, index, selected, onHover,
         selected ? "bg-(--wincy-selected) before:absolute before:inset-y-3 before:left-0 before:w-[3px] before:rounded-full before:bg-accent" : ""
       }`}
     >
+      {children}
+      <IndexKeycap index={index} />
+    </div>
+  );
+}
+
+interface SnippetProps {
+  snippet: Snippet;
+  index: number;
+  selected: boolean;
+  onHover: (index: number) => void;
+  onPick: (index: number) => void;
+}
+
+export const SnippetItem = memo(function SnippetItem({ snippet, ...row }: SnippetProps) {
+  return (
+    <Row id={`snippet-${snippet.id}`} {...row}>
+      <span className="flex w-7 shrink-0 justify-center">
+        <Braces size={16} className="mx-0.5 shrink-0 text-muted" aria-hidden />
+      </span>
+      <span className="flex min-w-0 flex-1 items-baseline gap-2">
+        <span className="shrink-0 truncate text-[13.5px] font-medium max-w-[60%]">{snippet.name}</span>
+        <span className="min-w-0 truncate text-xs text-muted">{snippet.body.slice(0, 300).replace(/\s+/g, " ")}</span>
+      </span>
+      {snippet.shortcut && <ShortcutKeycap shortcut={snippet.shortcut} />}
+    </Row>
+  );
+});
+
+interface Props {
+  clip: ClipSummary;
+  index: number;
+  selected: boolean;
+  onHover: (index: number) => void;
+  onPick: (index: number) => void;
+}
+
+export const ClipItem = memo(function ClipItem({ clip, index, selected, onHover, onPick }: Props) {
+  const { t, locale } = useI18n();
+  return (
+    <Row id={`clip-${clip.id}`} index={index} selected={selected} onHover={onHover} onPick={onPick}>
       <span className="flex w-7 shrink-0 justify-center">
         <Leading clip={clip} />
       </span>
@@ -98,16 +157,12 @@ export const ClipItem = memo(function ClipItem({ clip, index, selected, onHover,
         {label(clip, t)}
       </span>
       {clip.pinned && !selected && <Pin size={13} className="shrink-0 rotate-45 text-accent" aria-label={t("pinned")} />}
+      {clip.shortcut && <ShortcutKeycap shortcut={clip.shortcut} />}
       <span className="max-w-36 shrink-0 truncate text-xs text-muted">
         {clip.sourceApp ? `${clip.sourceApp.replace(/\.exe$/i, "")} · ` : ""}
         {relativeTime(clip.updatedAt, locale)}
       </span>
       {selected && <RowActions pinned={clip.pinned} />}
-      {index < 9 && (
-        <Kbd variant="light" className="shrink-0 text-[11px] text-muted [word-spacing:normal]" aria-hidden>
-          <Kbd.Content>Alt {index + 1}</Kbd.Content>
-        </Kbd>
-      )}
-    </div>
+    </Row>
   );
 });

@@ -43,9 +43,9 @@ const CF_DIB: u32 = 8;
 const CF_UNICODETEXT: u32 = 13;
 const CF_HDROP: u32 = 15;
 const CF_DIBV5: u32 = 17;
-const MAX_TEXT_BYTES: usize = 1 << 20;
+pub const MAX_TEXT_BYTES: usize = 1 << 20;
 // Rebuilding a truncated CF_HTML fragment is not worth it; huge HTML is dropped, text is kept.
-const MAX_HTML_BYTES: usize = 4 << 20;
+pub const MAX_HTML_BYTES: usize = 4 << 20;
 const THUMB_SIZE: u32 = 320;
 const WM_WRITE: u32 = WM_APP + 1;
 
@@ -341,6 +341,15 @@ fn read_text() -> Option<Content> {
     Some(Content::Text(text, html))
 }
 
+/// The clipboard's current text (snippet `{clipboard}`), from any thread.
+pub fn current_text() -> Option<String> {
+    let _open = Opened::new()?;
+    match read_text()? {
+        Content::Text(text, _) => Some(text),
+        _ => None,
+    }
+}
+
 fn truncate_utf8(s: &mut String, max: usize) {
     if s.len() > max {
         let mut end = max;
@@ -401,7 +410,7 @@ fn exe_name(hwnd: HWND) -> Option<String> {
     }
 }
 
-fn hash(kind: &str, content: &[u8]) -> String {
+pub fn hash(kind: &str, content: &[u8]) -> String {
     let mut h = Sha256::new();
     h.update(kind.as_bytes());
     h.update([0]);
@@ -461,7 +470,7 @@ fn encode_png(img: &DynamicImage) -> image::ImageResult<Vec<u8>> {
     Ok(out)
 }
 
-fn save_image(dir: &Path, hash: &str, png: &[u8], img: &DynamicImage) -> std::io::Result<()> {
+pub fn save_image(dir: &Path, hash: &str, png: &[u8], img: &DynamicImage) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
     let full = db::image_path(dir, hash);
     let thumb = db::thumb_path(dir, hash);

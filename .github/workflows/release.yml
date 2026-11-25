@@ -34,6 +34,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Read version from tag
+        run: '"VERSION=$($env:GITHUB_REF_NAME.TrimStart(''v''))" >> $env:GITHUB_ENV'
+
       # Unsigned installer (default). Used while the repo variable SIGNPATH_ORGANIZATION_ID is not set.
       - uses: tauri-apps/tauri-action@v1
         if: vars.SIGNPATH_ORGANIZATION_ID == ''
@@ -44,17 +47,13 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Wincy v__VERSION__'
-          releaseBody: 'See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md) for what changed. Download the `*_x64-setup.exe` installer below.'
+          releaseBody: 'See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md) for what changed. Download the `*_x64-setup.exe` installer below, or `*_x64-portable.zip` for the portable version (no install, no auto-update).'
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
 
       # Authenticode-signed installer via SignPath (docs/SIGNING.md). The updater .sig must cover the
       # signed bytes, so: build -> SignPath signs -> tauri signer re-signs -> latest.json -> draft release.
-      - name: Read version from tag
-        if: vars.SIGNPATH_ORGANIZATION_ID != ''
-        run: '"VERSION=$($env:GITHUB_REF_NAME.TrimStart(''v''))" >> $env:GITHUB_ENV'
-
       - name: Build unsigned installer
         if: vars.SIGNPATH_ORGANIZATION_ID != ''
         env:
@@ -62,16 +61,23 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: pnpm tauri build
 
-      - name: Upload unsigned installer
+      # The installer and the bare wincy.exe (for the portable zip) go to SignPath together, at the artifact root.
+      - name: Stage files for signing
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        run: |
+          New-Item -ItemType Directory unsigned | Out-Null
+          Copy-Item "src-tauri/target/release/bundle/nsis/Wincy_$($env:VERSION)_x64-setup.exe", src-tauri/target/release/wincy.exe unsigned/
+
+      - name: Upload unsigned files
         id: unsigned
         if: vars.SIGNPATH_ORGANIZATION_ID != ''
         uses: actions/upload-artifact@v7
         with:
-          name: unsigned-installer
-          path: src-tauri/target/release/bundle/nsis/Wincy_${{ env.VERSION }}_x64-setup.exe
+          name: unsigned-files
+          path: unsigned/
           if-no-files-found: error
 
-      - name: Sign installer with SignPath
+      - name: Sign installer and wincy.exe with SignPath
         if: vars.SIGNPATH_ORGANIZATION_ID != ''
         uses: signpath/github-action-submit-signing-request@v3
         with:
@@ -87,6 +93,25 @@ jobs:
           parameters: |
             version: ${{ toJSON(env.VERSION) }}
 
+      # Portable zip, both flows: the bare exe plus the empty "portable" marker that keeps data next to it.
+      - name: Package portable zip
+        env:
+          SIGNED: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = if ($env:SIGNED -eq 'true') { 'signed/wincy.exe' } else { 'src-tauri/target/release/wincy.exe' }
+          if ($env:SIGNED -eq 'true') {
+            $auth = Get-AuthenticodeSignature $exe
+            if ($auth.Status -ne 'Valid') { throw "SignPath returned wincy.exe without a valid signature: $($auth.Status)" }
+          }
+          New-Item -ItemType Directory portable-zip | Out-Null
+          Copy-Item $exe portable-zip/wincy.exe
+          Copy-Item packaging/portable/README.txt portable-zip/README.txt
+          New-Item -ItemType File portable-zip/portable | Out-Null
+          $zip = "Wincy_$($env:VERSION)_x64-portable.zip"
+          Compress-Archive -Path portable-zip/* -DestinationPath $zip
+          "PORTABLE_ZIP=$zip" >> $env:GITHUB_ENV
+
       - name: Sign updater artifact and publish draft release
         if: vars.SIGNPATH_ORGANIZATION_ID != ''
         env:
@@ -94,7 +119,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          NOTES: 'See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md) for what changed. Download the `*_x64-setup.exe` installer below.'
+          NOTES: 'See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md) for what changed. Download the `*_x64-setup.exe` installer below, or `*_x64-portable.zip` for the portable version (no install, no auto-update).'
         run: |
           $ErrorActionPreference = 'Stop'
           $tag = $env:GITHUB_REF_NAME
@@ -117,7 +142,7 @@ jobs:
             platforms = [ordered]@{ 'windows-x86_64' = $platform; 'windows-x86_64-nsis' = $platform }
           } | ConvertTo-Json -Depth 4 | Set-Content signed/latest.json -Encoding utf8NoBOM
 
-          $files = $exe, "$exe.sig", 'signed/latest.json'
+          $files = $exe, "$exe.sig", 'signed/latest.json', $env:PORTABLE_ZIP
           $draft = gh release view $tag --json isDraft --jq .isDraft 2>$null
           if ($LASTEXITCODE) {
             gh release create $tag @files --draft --verify-tag --title "Wincy v$env:VERSION" --notes $env:NOTES
@@ -127,3 +152,12 @@ jobs:
             throw "Release $tag is already published; ship a new version instead."
           }
           if ($LASTEXITCODE) { throw 'gh release failed' }
+
+      - name: Upload portable zip to the draft release
+        if: vars.SIGNPATH_ORGANIZATION_ID == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release upload $env:GITHUB_REF_NAME $env:PORTABLE_ZIP --clobber
+          if ($LASTEXITCODE) { throw 'gh release upload failed' }

@@ -1,14 +1,15 @@
-import { Alert, AlertDialog, Button, Description, Label, ListBox, NumberField, Select, Switch } from "@heroui/react";
-import { ArrowLeft, Check, ClipboardCopy, Coffee, ExternalLink, FileText, FolderOpen, Trash2 } from "lucide-react";
+import { Alert, AlertDialog, Button, Description, Label, ListBox, NumberField, Select, Switch, toast } from "@heroui/react";
+import { ArrowLeft, Check, ClipboardCopy, Coffee, Download, ExternalLink, FileText, FolderOpen, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import markSmall from "../../assets/brand/mark-small.svg";
-import { api, appVersion, errorMessage, openExternal } from "../api";
+import { api, appVersion, chooseExportPath, chooseImportPath, errorMessage, openExternal } from "../api";
 import { useI18n, type MessageKey } from "../i18n";
 import { useClipboardStore } from "../store/useClipboardStore";
 import type { Language, Settings } from "../types";
 import { AccentSwatches, ThemeCards } from "./AppearancePicker";
 import { IgnoredApps } from "./IgnoredApps";
 import { ShortcutRecorder } from "./ShortcutRecorder";
+import { SnippetSettings, type Confirm } from "./SnippetSettings";
 import { UpdateSection } from "./UpdateSection";
 
 const REPO_URL = "https://github.com/devnielo/wincy";
@@ -116,6 +117,96 @@ function ShortcutBanner({ shortcut }: { shortcut: string }) {
   );
 }
 
+function ConflictsBanner() {
+  const { t } = useI18n();
+  const conflicts = useClipboardStore((s) => s.status?.shortcutConflicts);
+  if (!conflicts?.length) return null;
+  return (
+    <Alert status="warning" className="rounded-lg border border-warning/30 bg-warning-soft shadow-none">
+      <Alert.Indicator />
+      <Alert.Content>
+        <Alert.Title>{t("s.conflictsTitle")}</Alert.Title>
+        <Alert.Description className="text-xs text-foreground/80">
+          {t("s.conflictsBody")}
+          <ul className="mt-1 list-disc pl-4">
+            {conflicts.map((c) => (
+              <li key={c}>
+                {c.replace(/ \((pin|snippet)\)$/, (_, k) => ` (${t(k === "pin" ? "s.conflictPin" : "s.conflictSnippet")})`)}
+              </li>
+            ))}
+          </ul>
+        </Alert.Description>
+      </Alert.Content>
+    </Alert>
+  );
+}
+
+/** Export / import of clips and snippets (`*.wincy.json`). */
+function Backup() {
+  const { t } = useI18n();
+  const [includeImages, setIncludeImages] = useState(true);
+  const [busy, setBusy] = useState<"export" | "import" | null>(null);
+
+  async function run<T>(kind: "export" | "import", pick: () => Promise<string | null>, go: (path: string) => Promise<T>, done: (r: T) => void) {
+    setBusy(kind);
+    try {
+      const path = await pick();
+      if (path) done(await go(path));
+    } catch (e) {
+      toast.danger(kind === "export" ? t("s.exportFailed") : t("s.importFailed"), { description: errorMessage(e), timeout: 0 });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 px-3 py-2.5">
+      <div className="flex flex-col">
+        <span className="text-sm">{t("s.backup")}</span>
+        <span className="text-xs text-muted">{t("s.backupHint")}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          isPending={busy === "export"}
+          isDisabled={busy !== null}
+          onPress={() =>
+            void run("export", chooseExportPath, (path) => api.exportHistory(path, includeImages), (r) =>
+              toast.success(t("s.exportDone"), { description: t("s.exportBody", { clips: r.clips, snippets: r.snippets }) }),
+            )
+          }
+        >
+          <Upload size={14} />
+          {t("s.export")}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          isPending={busy === "import"}
+          isDisabled={busy !== null}
+          onPress={() =>
+            void run("import", chooseImportPath, api.importHistory, (r) =>
+              toast.success(t("s.importDone"), { description: t("s.importBody", { ...r }) }),
+            )
+          }
+        >
+          <Download size={14} />
+          {t("s.import")}
+        </Button>
+        <Switch isSelected={includeImages} onChange={setIncludeImages} size="sm" className="ml-auto">
+          <Switch.Content className="flex items-center gap-2">
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+            <Label className="text-xs font-normal">{t("s.includeImages")}</Label>
+          </Switch.Content>
+        </Switch>
+      </div>
+    </div>
+  );
+}
+
 function Diagnostics({ run }: { run: (action: () => Promise<unknown>) => void }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
@@ -153,11 +244,12 @@ export function SettingsView() {
   const error = useClipboardStore((s) => s.error);
   const setError = useClipboardStore((s) => s.setError);
   const setView = useClipboardStore((s) => s.setView);
+  const portable = useClipboardStore((s) => s.status?.portable ?? false);
   const [version, setVersion] = useState("");
   // Kept after closing so the dialog keeps its text during the exit animation.
-  const [confirm, setConfirm] = useState<{ title: string; body: string; action: string; run: () => void } | null>(null);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const ask = (c: NonNullable<typeof confirm>) => {
+  const ask = (c: Confirm) => {
     setConfirm(c);
     setConfirmOpen(true);
   };
@@ -201,13 +293,23 @@ export function SettingsView() {
       {settings && (
         <div className="wincy-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
           <ShortcutBanner shortcut={settings.shortcut} />
+          <ConflictsBanner />
 
           <Section title={t("s.general")}>
             <Row id="set-shortcut" label={t("s.shortcut")} hint={t("s.shortcutHint")}>
-              <ShortcutRecorder labelId="set-shortcut" />
+              <ShortcutRecorder
+                labelId="set-shortcut"
+                value={settings.shortcut}
+                onChange={(shortcut) => saveSettings({ shortcut: shortcut ?? settings.shortcut })}
+              />
             </Row>
-            <Toggle field="launchAtStartup" label="s.launchAtStartup" />
+            {/* Portable copies never register autostart: the exe may live on a removable drive. */}
+            {!portable && <Toggle field="launchAtStartup" label="s.launchAtStartup" />}
             <Toggle field="pasteDirectly" label="s.pasteDirectly" hint="s.pasteDirectlyHint" />
+          </Section>
+
+          <Section title={t("s.snippets")}>
+            <SnippetSettings ask={ask} />
           </Section>
 
           <Section title={t("s.appearance")}>
@@ -331,6 +433,7 @@ export function SettingsView() {
                 {t("s.clearHistory")}
               </Button>
             </div>
+            <Backup />
             <Diagnostics run={run} />
           </Section>
 

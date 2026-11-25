@@ -23,6 +23,8 @@ pub struct ClipSummary {
     pub use_count: i64,
     /// Text recognized in an image: `None` until OCR ran, `""` when it found nothing.
     pub ocr_text: Option<String>,
+    /// Global shortcut that pastes this (pinned) clip.
+    pub shortcut: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -83,7 +85,7 @@ pub fn checkpoint(conn: &Connection) {
 }
 
 // Each step bumps `user_version` in its own transaction. A newer version (downgraded app) is left as is.
-fn migrate(conn: &Connection) -> Result<()> {
+pub(crate) fn migrate(conn: &Connection) -> Result<()> {
     let version: i32 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
     if version < 1 {
         conn.execute_batch(
@@ -121,6 +123,56 @@ fn migrate(conn: &Connection) -> Result<()> {
             "ALTER TABLE clips ADD COLUMN ocr_text TEXT;"
         };
         conn.execute_batch(&format!("BEGIN; {alter} PRAGMA user_version = 2; COMMIT;"))?;
+    }
+    if version < 3 {
+        // Same downgrade case as above: rerunning this step must be harmless.
+        let has_shortcut: bool = conn.query_row(
+            "SELECT COUNT(*) > 0 FROM pragma_table_info('clips') WHERE name = 'shortcut'",
+            [],
+            |r| r.get(0),
+        )?;
+        let alter = if has_shortcut {
+            ""
+        } else {
+            "ALTER TABLE clips ADD COLUMN shortcut TEXT;"
+        };
+        conn.execute_batch(&format!(
+            "BEGIN;
+             {alter}
+             CREATE UNIQUE INDEX IF NOT EXISTS clips_shortcut ON clips (shortcut);
+             CREATE TABLE IF NOT EXISTS snippets (
+                 id          INTEGER PRIMARY KEY,
+                 name        TEXT NOT NULL,
+                 body        TEXT NOT NULL,
+                 shortcut    TEXT UNIQUE,
+                 created_at  INTEGER NOT NULL,
+                 updated_at  INTEGER NOT NULL
+             );
+             CREATE VIRTUAL TABLE IF NOT EXISTS clips_fts USING fts5(
+                 text, ocr_text, source_app,
+                 content='clips', content_rowid='id', tokenize='unicode61 remove_diacritics 2'
+             );
+             -- Without it a deleted clip's words stay in old index segments until a merge.
+             INSERT INTO clips_fts (clips_fts, rank) VALUES ('secure-delete', 1);
+             CREATE TRIGGER IF NOT EXISTS clips_fts_insert AFTER INSERT ON clips BEGIN
+                 INSERT INTO clips_fts (rowid, text, ocr_text, source_app)
+                     VALUES (new.id, new.text, new.ocr_text, new.source_app);
+             END;
+             CREATE TRIGGER IF NOT EXISTS clips_fts_delete AFTER DELETE ON clips BEGIN
+                 INSERT INTO clips_fts (clips_fts, rowid, text, ocr_text, source_app)
+                     VALUES ('delete', old.id, old.text, old.ocr_text, old.source_app);
+             END;
+             CREATE TRIGGER IF NOT EXISTS clips_fts_update
+                 AFTER UPDATE OF text, ocr_text, source_app ON clips BEGIN
+                 INSERT INTO clips_fts (clips_fts, rowid, text, ocr_text, source_app)
+                     VALUES ('delete', old.id, old.text, old.ocr_text, old.source_app);
+                 INSERT INTO clips_fts (rowid, text, ocr_text, source_app)
+                     VALUES (new.id, new.text, new.ocr_text, new.source_app);
+             END;
+             INSERT INTO clips_fts (clips_fts) VALUES ('rebuild');
+             PRAGMA user_version = 3;
+             COMMIT;"
+        ))?;
     }
     Ok(())
 }
@@ -238,9 +290,11 @@ fn delete_returning(
     Ok((count, images))
 }
 
+/// Unpinning also clears the clip's shortcut.
 pub fn toggle_pin(conn: &Connection, id: i64) -> Result<bool> {
     conn.query_row(
-        "UPDATE clips SET pinned = 1 - pinned WHERE id = ?1 RETURNING pinned",
+        "UPDATE clips SET pinned = 1 - pinned, shortcut = CASE WHEN pinned THEN NULL ELSE shortcut END
+         WHERE id = ?1 RETURNING pinned",
         params![id],
         |r| r.get(0),
     )
@@ -256,13 +310,80 @@ pub fn mark_used(conn: &Connection, id: i64) -> Result<()> {
 
 // substr counts characters, not bytes, so previews never split a code point.
 const SUMMARY_COLUMNS: &str = "id, kind, substr(text, 1, 500), html IS NOT NULL, files, image_w, image_h, \
-     source_app, pinned, created_at, updated_at, use_count, hash, substr(ocr_text, 1, 500)";
+     source_app, pinned, created_at, updated_at, use_count, hash, substr(ocr_text, 1, 500), shortcut";
 
-pub fn list(conn: &Connection, images_dir: &Path) -> Result<Vec<ClipSummary>> {
+/// All pinned clips plus the newest `unpinned` others; pinned first, then by `updated_at` desc.
+pub fn list(conn: &Connection, images_dir: &Path, unpinned: u32) -> Result<Vec<ClipSummary>> {
     let mut stmt = conn.prepare(&format!(
-        "SELECT {SUMMARY_COLUMNS} FROM clips ORDER BY pinned DESC, updated_at DESC"
+        "SELECT {SUMMARY_COLUMNS} FROM clips WHERE pinned = 1 OR id IN
+             (SELECT id FROM clips WHERE pinned = 0 ORDER BY updated_at DESC LIMIT ?1)
+         ORDER BY pinned DESC, updated_at DESC"
     ))?;
-    stmt.query_map([], |r| summary(r, images_dir))?.collect()
+    stmt.query_map(params![unpinned], |r| summary(r, images_dir))?
+        .collect()
+}
+
+/// Splits a search query into an FTS5 MATCH expression (every word quoted as a prefix
+/// term, so user input is never parsed as FTS syntax) and lowercased `app:` terms.
+pub fn parse_search(query: &str) -> (String, Vec<String>) {
+    let mut words = Vec::new();
+    let mut apps = Vec::new();
+    for token in query.split_whitespace() {
+        if token
+            .get(..4)
+            .is_some_and(|p| p.eq_ignore_ascii_case("app:"))
+        {
+            // Like the frontend's parseQuery: `app:chrome.exe` means `app:chrome`.
+            let term = token[4..].to_lowercase();
+            let term = term.strip_suffix(".exe").unwrap_or(&term);
+            if !term.is_empty() {
+                apps.push(term.to_string());
+            }
+        // Punctuation-only words have no tokens to match.
+        } else if token.chars().any(char::is_alphanumeric) {
+            words.push(format!("\"{}\"*", token.replace('"', "\"\"")));
+        }
+    }
+    (words.join(" "), apps)
+}
+
+/// Full-text search for histories larger than what `list(.., loaded)` loads. Clips outside
+/// that window come first: the loaded ones are mostly found by the frontend already.
+pub fn search(
+    conn: &Connection,
+    images_dir: &Path,
+    query: &str,
+    limit: u32,
+    loaded: u32,
+) -> Result<Vec<ClipSummary>> {
+    use rusqlite::types::Value;
+    let (fts, apps) = parse_search(query);
+    let mut sql = format!("SELECT {SUMMARY_COLUMNS} FROM clips WHERE 1");
+    let mut args = Vec::new();
+    if !fts.is_empty() {
+        sql += " AND id IN (SELECT rowid FROM clips_fts WHERE clips_fts MATCH ?)";
+        args.push(Value::Text(fts));
+    }
+    if !apps.is_empty() {
+        // `app:` terms are OR-ed and match the exe name without `.exe`.
+        sql += " AND EXISTS (SELECT 1 FROM json_each(?) WHERE instr(lower(CASE
+                 WHEN source_app LIKE '%.exe' THEN substr(source_app, 1, length(source_app) - 4)
+                 ELSE source_app END), value) > 0)";
+        args.push(Value::Text(
+            serde_json::to_string(&apps).unwrap_or_default(),
+        ));
+    }
+    if args.is_empty() {
+        return Ok(Vec::new());
+    }
+    sql += " ORDER BY pinned = 1 OR id IN
+                 (SELECT id FROM clips WHERE pinned = 0 ORDER BY updated_at DESC LIMIT ?),
+             pinned DESC, updated_at DESC LIMIT ?";
+    args.push(Value::Integer(loaded.into()));
+    args.push(Value::Integer(limit.into()));
+    let mut stmt = conn.prepare(&sql)?;
+    stmt.query_map(rusqlite::params_from_iter(args), |r| summary(r, images_dir))?
+        .collect()
 }
 
 pub fn get(conn: &Connection, id: i64, images_dir: &Path) -> Result<Option<Clip>> {
@@ -272,11 +393,11 @@ pub fn get(conn: &Connection, id: i64, images_dir: &Path) -> Result<Option<Clip>
         |r| {
             Ok(Clip {
                 summary: ClipSummary {
-                    ocr_text: r.get(16)?,
+                    ocr_text: r.get(17)?,
                     ..summary(r, images_dir)?
                 },
-                text: r.get(14)?,
-                html: r.get(15)?,
+                text: r.get(15)?,
+                html: r.get(16)?,
             })
         },
     )
@@ -314,6 +435,7 @@ fn summary(r: &Row, images_dir: &Path) -> Result<ClipSummary> {
         updated_at: r.get(10)?,
         use_count: r.get(11)?,
         ocr_text: r.get(13)?,
+        shortcut: r.get(14)?,
     })
 }
 
@@ -347,6 +469,114 @@ pub fn set_ocr_text(conn: &Connection, hash: &str, text: &str) -> Result<bool> {
     .map(|n| n > 0)
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShortcutTarget {
+    Clip(i64),
+    Snippet(i64),
+}
+
+/// Every stored pin and snippet shortcut.
+pub fn shortcuts(conn: &Connection) -> Result<Vec<(String, ShortcutTarget)>> {
+    let mut stmt = conn.prepare(
+        "SELECT shortcut, id, 0 FROM clips WHERE shortcut IS NOT NULL AND pinned = 1
+         UNION ALL SELECT shortcut, id, 1 FROM snippets WHERE shortcut IS NOT NULL",
+    )?;
+    stmt.query_map([], |r| {
+        let id = r.get(1)?;
+        let target = if r.get::<_, bool>(2)? {
+            ShortcutTarget::Snippet(id)
+        } else {
+            ShortcutTarget::Clip(id)
+        };
+        Ok((r.get(0)?, target))
+    })?
+    .collect()
+}
+
+/// Returns false when the clip does not exist or is not pinned.
+pub fn set_clip_shortcut(conn: &Connection, id: i64, shortcut: Option<&str>) -> Result<bool> {
+    conn.execute(
+        "UPDATE clips SET shortcut = ?2 WHERE id = ?1 AND pinned = 1",
+        params![id, shortcut],
+    )
+    .map(|n| n > 0)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Snippet {
+    pub id: i64,
+    pub name: String,
+    pub body: String,
+    pub shortcut: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+const SNIPPET_COLUMNS: &str = "id, name, body, shortcut, created_at, updated_at";
+
+fn snippet_row(r: &Row) -> Result<Snippet> {
+    Ok(Snippet {
+        id: r.get(0)?,
+        name: r.get(1)?,
+        body: r.get(2)?,
+        shortcut: r.get(3)?,
+        created_at: r.get(4)?,
+        updated_at: r.get(5)?,
+    })
+}
+
+pub fn snippets(conn: &Connection) -> Result<Vec<Snippet>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {SNIPPET_COLUMNS} FROM snippets ORDER BY name COLLATE NOCASE, id"
+    ))?;
+    stmt.query_map([], snippet_row)?.collect()
+}
+
+pub fn snippet(conn: &Connection, id: i64) -> Result<Option<Snippet>> {
+    conn.query_row(
+        &format!("SELECT {SNIPPET_COLUMNS} FROM snippets WHERE id = ?1"),
+        params![id],
+        snippet_row,
+    )
+    .optional()
+}
+
+/// Inserts (`id = None`) or updates a snippet. `None` when the id does not exist.
+pub fn save_snippet(
+    conn: &Connection,
+    id: Option<i64>,
+    name: &str,
+    body: &str,
+    shortcut: Option<&str>,
+) -> Result<Option<Snippet>> {
+    let now = now_ms();
+    match id {
+        None => conn.query_row(
+            &format!(
+                "INSERT INTO snippets (name, body, shortcut, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?4) RETURNING {SNIPPET_COLUMNS}"
+            ),
+            params![name, body, shortcut, now],
+            snippet_row,
+        ),
+        Some(id) => conn.query_row(
+            &format!(
+                "UPDATE snippets SET name = ?2, body = ?3, shortcut = ?4, updated_at = ?5
+                 WHERE id = ?1 RETURNING {SNIPPET_COLUMNS}"
+            ),
+            params![id, name, body, shortcut, now],
+            snippet_row,
+        ),
+    }
+    .optional()
+}
+
+pub fn delete_snippet(conn: &Connection, id: i64) -> Result<()> {
+    conn.execute("DELETE FROM snippets WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -372,19 +602,19 @@ mod tests {
         }
         assert!(!upsert(&conn, &text_clip("a")).unwrap());
 
-        let a = list(&conn, Path::new("x")).unwrap();
+        let a = list(&conn, Path::new("x"), 2000).unwrap();
         assert_eq!(a.len(), 3);
         let id_c = a.iter().find(|c| c.preview == "text c").unwrap().id;
         assert!(toggle_pin(&conn, id_c).unwrap());
 
         let (removed, _) = trim(&conn, 1).unwrap();
         assert_eq!(removed, 1);
-        let left = list(&conn, Path::new("x")).unwrap();
+        let left = list(&conn, Path::new("x"), 2000).unwrap();
         assert_eq!(left.len(), 2);
         assert!(left[0].pinned);
 
         clear(&conn).unwrap();
-        assert_eq!(list(&conn, Path::new("x")).unwrap().len(), 1);
+        assert_eq!(list(&conn, Path::new("x"), 2000).unwrap().len(), 1);
     }
 
     #[test]
@@ -406,8 +636,8 @@ mod tests {
         let version: i32 = conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 2);
-        let clips = list(&conn, Path::new("x")).unwrap();
+        assert_eq!(version, 3);
+        let clips = list(&conn, Path::new("x"), 2000).unwrap();
         assert_eq!(clips.len(), 2);
         assert!(clips.iter().all(|c| c.ocr_text.is_none()));
         assert!(clips.iter().any(|c| c.preview == "kept"));
@@ -421,7 +651,7 @@ mod tests {
         assert!(set_ocr_text(&conn, "img", &long).unwrap());
         assert!(!needs_ocr(&conn, "img").unwrap());
         assert!(ocr_pending(&conn, 200).unwrap().is_empty());
-        let img = list(&conn, Path::new("x")).unwrap().remove(0);
+        let img = list(&conn, Path::new("x"), 2000).unwrap().remove(0);
         assert_eq!(img.ocr_text.unwrap().chars().count(), 500);
         let full = get(&conn, img.id, Path::new("x")).unwrap().unwrap();
         assert_eq!(full.summary.ocr_text.unwrap().chars().count(), 600);
@@ -450,7 +680,7 @@ mod tests {
 
         let (removed, images) = expire(&conn, 2000).unwrap();
         assert_eq!((removed, images), (1, vec!["old".to_string()]));
-        let left: Vec<String> = list(&conn, Path::new("x"))
+        let left: Vec<String> = list(&conn, Path::new("x"), 2000)
             .unwrap()
             .into_iter()
             .map(|c| c.preview)
@@ -480,5 +710,234 @@ mod tests {
         assert!(open_or_recover(&dir.join("missing").join("wincy.db")).is_err());
         drop(conn);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A v0.2 (user_version 2) database with data.
+    fn v2_database() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE clips (
+                 id INTEGER PRIMARY KEY, hash TEXT NOT NULL UNIQUE, kind TEXT NOT NULL,
+                 text TEXT, html TEXT, files TEXT, image_w INTEGER, image_h INTEGER,
+                 source_app TEXT, pinned INTEGER NOT NULL DEFAULT 0,
+                 created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+                 use_count INTEGER NOT NULL DEFAULT 0, ocr_text TEXT);
+             CREATE INDEX clips_order ON clips (pinned, updated_at);
+             INSERT INTO clips (hash, kind, text, source_app, pinned, created_at, updated_at) VALUES
+                 ('a', 'text', 'Café crème recipe', 'notepad.exe', 0, 1, 1),
+                 ('b', 'code', 'fn debounce() {}', 'Code.exe', 1, 2, 2),
+                 ('c', 'image', NULL, 'snippingtool.exe', 0, 3, 3);
+             UPDATE clips SET ocr_text = 'Invoice total' WHERE hash = 'c';
+             PRAGMA user_version = 2;",
+        )
+        .unwrap();
+        conn
+    }
+
+    fn ids(clips: &[ClipSummary]) -> Vec<String> {
+        let mut v: Vec<String> = clips
+            .iter()
+            .map(|c| c.source_app.clone().unwrap())
+            .collect();
+        v.sort();
+        v
+    }
+
+    #[test]
+    fn migrates_v2_database_with_fts_backfill() {
+        let conn = v2_database();
+        migrate(&conn).unwrap();
+        let version: i32 = conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 3);
+        let x = Path::new("x");
+        assert_eq!(list(&conn, x, 2000).unwrap().len(), 3);
+        assert!(
+            list(&conn, x, 2000)
+                .unwrap()
+                .iter()
+                .all(|c| c.shortcut.is_none())
+        );
+        assert!(snippets(&conn).unwrap().is_empty());
+        // Backfilled rows are searchable: prefix, diacritics, OCR text, source app.
+        assert_eq!(
+            ids(&search(&conn, x, "cafe", 10, 2000).unwrap()),
+            ["notepad.exe"]
+        );
+        assert_eq!(
+            ids(&search(&conn, x, "CREM", 10, 2000).unwrap()),
+            ["notepad.exe"]
+        );
+        assert_eq!(
+            ids(&search(&conn, x, "invoice", 10, 2000).unwrap()),
+            ["snippingtool.exe"]
+        );
+        assert_eq!(
+            ids(&search(&conn, x, "debounce", 10, 2000).unwrap()),
+            ["Code.exe"]
+        );
+        // Running the step again (downgrade to v0.1 and back) is harmless.
+        conn.pragma_update(None, "user_version", 2).unwrap();
+        migrate(&conn).unwrap();
+        assert_eq!(search(&conn, x, "cafe", 10, 2000).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn fts_follows_inserts_updates_and_deletes() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        let x = Path::new("x");
+        upsert(&conn, &text_clip("alpha")).unwrap();
+        upsert(&conn, &text_clip("beta")).unwrap();
+        assert_eq!(search(&conn, x, "alph", 10, 2000).unwrap().len(), 1);
+        assert_eq!(search(&conn, x, "text", 10, 2000).unwrap().len(), 2);
+        assert_eq!(search(&conn, x, "text", 1, 2000).unwrap().len(), 1);
+        // Words are AND-ed.
+        assert_eq!(search(&conn, x, "text beta", 10, 2000).unwrap().len(), 1);
+        conn.execute("UPDATE clips SET text = 'gamma' WHERE hash = 'alpha'", [])
+            .unwrap();
+        assert!(search(&conn, x, "alpha", 10, 2000).unwrap().is_empty());
+        assert_eq!(search(&conn, x, "gamma", 10, 2000).unwrap().len(), 1);
+        let id = search(&conn, x, "beta", 10, 2000).unwrap()[0].id;
+        delete(&conn, id).unwrap();
+        assert!(search(&conn, x, "beta", 10, 2000).unwrap().is_empty());
+        let integrity: rusqlite::Result<()> = conn
+            .execute_batch("INSERT INTO clips_fts (clips_fts, rank) VALUES ('integrity-check', 1)");
+        assert!(integrity.is_ok());
+    }
+
+    #[test]
+    fn search_input_is_never_fts_syntax() {
+        let conn = v2_database();
+        migrate(&conn).unwrap();
+        let x = Path::new("x");
+        for q in [
+            "\"",
+            "\"\"",
+            "*",
+            "a OR b",
+            "NEAR(a b)",
+            "col:x",
+            "-",
+            "(",
+            "recipe\"",
+            "^cafe",
+            "a AND",
+        ] {
+            assert!(search(&conn, x, q, 10, 2000).is_ok(), "{q}");
+        }
+        assert!(search(&conn, x, "", 10, 2000).unwrap().is_empty());
+        assert!(search(&conn, x, "OR", 10, 2000).unwrap().is_empty());
+        assert_eq!(
+            parse_search("app:Code  deb\"ounce APP:edge app: -"),
+            (
+                "\"deb\"\"ounce\"*".to_string(),
+                vec!["code".to_string(), "edge".to_string()]
+            )
+        );
+        // app: matches the exe name without ".exe", case-insensitively; terms are OR-ed.
+        assert_eq!(
+            ids(&search(&conn, x, "app:code", 10, 2000).unwrap()),
+            ["Code.exe"]
+        );
+        assert!(search(&conn, x, "app:exe", 10, 2000).unwrap().is_empty());
+        assert_eq!(
+            ids(&search(&conn, x, "app:Code.EXE", 10, 2000).unwrap()),
+            ["Code.exe"]
+        );
+        assert_eq!(parse_search("app:Code.exe foo").1, ["code"]);
+        assert!(parse_search("app:.exe").1.is_empty());
+        assert_eq!(
+            ids(&search(&conn, x, "app:note app:snip", 10, 2000).unwrap()),
+            ["notepad.exe", "snippingtool.exe"]
+        );
+        assert!(
+            search(&conn, x, "app:code cafe", 10, 2000)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            ids(&search(&conn, x, "app:% cafe", 10, 2000).unwrap()),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn list_keeps_pinned_and_newest_unpinned() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        for h in ["1", "2", "3", "4"] {
+            upsert(&conn, &text_clip(h)).unwrap();
+            conn.execute(
+                "UPDATE clips SET updated_at = ?2 WHERE hash = ?1",
+                params![h, h.parse::<i64>().unwrap()],
+            )
+            .unwrap();
+        }
+        conn.execute("UPDATE clips SET pinned = 1 WHERE hash = '1'", [])
+            .unwrap();
+        let previews: Vec<String> = list(&conn, Path::new("x"), 2)
+            .unwrap()
+            .into_iter()
+            .map(|c| c.preview)
+            .collect();
+        assert_eq!(previews, ["text 1", "text 4", "text 3"]);
+        // The index returns the clips `list` did not load first.
+        let found: Vec<String> = search(&conn, Path::new("x"), "text", 10, 2)
+            .unwrap()
+            .into_iter()
+            .map(|c| c.preview)
+            .collect();
+        assert_eq!(found, ["text 2", "text 1", "text 4", "text 3"]);
+    }
+
+    #[test]
+    fn unpinning_clears_the_shortcut() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        upsert(&conn, &text_clip("a")).unwrap();
+        let id = list(&conn, Path::new("x"), 10).unwrap()[0].id;
+        assert!(!set_clip_shortcut(&conn, id, Some("Alt+Shift+A")).unwrap());
+        assert!(toggle_pin(&conn, id).unwrap());
+        assert!(set_clip_shortcut(&conn, id, Some("Alt+Shift+A")).unwrap());
+        assert_eq!(
+            shortcuts(&conn).unwrap(),
+            [("Alt+Shift+A".to_string(), ShortcutTarget::Clip(id))]
+        );
+        assert!(!toggle_pin(&conn, id).unwrap());
+        assert!(shortcuts(&conn).unwrap().is_empty());
+        assert!(toggle_pin(&conn, id).unwrap());
+        assert_eq!(list(&conn, Path::new("x"), 10).unwrap()[0].shortcut, None);
+    }
+
+    #[test]
+    fn snippet_crud() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        let b = save_snippet(&conn, None, "b", "body", Some("Ctrl+Alt+B"))
+            .unwrap()
+            .unwrap();
+        save_snippet(&conn, None, "A", "x", None).unwrap().unwrap();
+        let names: Vec<String> = snippets(&conn)
+            .unwrap()
+            .into_iter()
+            .map(|s| s.name)
+            .collect();
+        assert_eq!(names, ["A", "b"]);
+        // The unique column rejects a textual duplicate.
+        assert!(save_snippet(&conn, None, "c", "x", Some("Ctrl+Alt+B")).is_err());
+        let edited = save_snippet(&conn, Some(b.id), "b2", "new", None)
+            .unwrap()
+            .unwrap();
+        assert_eq!((edited.name.as_str(), edited.shortcut), ("b2", None));
+        assert_eq!(edited.created_at, b.created_at);
+        assert!(
+            save_snippet(&conn, Some(999), "x", "y", None)
+                .unwrap()
+                .is_none()
+        );
+        delete_snippet(&conn, b.id).unwrap();
+        assert!(snippet(&conn, b.id).unwrap().is_none());
     }
 }

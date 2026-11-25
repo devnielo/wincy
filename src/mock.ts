@@ -1,6 +1,6 @@
 // In-memory stand-in for the Rust backend so `pnpm dev` works in a normal browser.
 import type { EventMap } from "./api";
-import type { Clip, ClipKind, Settings, Status } from "./types";
+import type { Clip, ClipKind, ClipSummary, Settings, Snippet, SnippetInput, Status } from "./types";
 
 const MIN = 60_000;
 const now = Date.now();
@@ -69,6 +69,8 @@ let clips: Clip[] = seeds.map(([kind, content, app, ago], i) => {
     useCount: (i * 7) % 5,
     html: null,
     ocrText: null,
+    // A pinned clip with its own global shortcut.
+    shortcut: i === 18 ? "Alt+Shift+A" : null,
   } satisfies Partial<Clip>;
   if (kind === "image") {
     const [from, to, w, h, lines] = content as ImageSeed;
@@ -89,6 +91,91 @@ let clips: Clip[] = seeds.map(([kind, content, app, ago], i) => {
   const text = content as string;
   return { ...base, preview: text.slice(0, 500), text };
 });
+
+// Older history that get_clips doesn't load (it returns the newest 2 000 unpinned): only search_clips finds it.
+const WORDS = ["invoice", "budget", "roadmap", "release", "kickoff", "migration", "retro", "onboarding", "postmortem", "contract"];
+const APPS = ["outlook.exe", "chrome.exe", "code.exe", "notion.exe", "teams.exe"];
+const archive: Clip[] = Array.from({ length: 2400 }, (_, n) => {
+  const word = WORDS[n % WORDS.length];
+  const text = `Archived note ${n + 1}: ${word} follow-up for Q${(n % 4) + 1}`;
+  const t = now - (30 + n) * 24 * 60 * MIN;
+  return {
+    id: 100_000 + n,
+    kind: "text",
+    preview: text,
+    text,
+    html: null,
+    hasHtml: false,
+    thumbPath: null,
+    imagePath: null,
+    imageSize: null,
+    files: null,
+    sourceApp: APPS[n % APPS.length],
+    pinned: false,
+    createdAt: t,
+    updatedAt: t,
+    useCount: 0,
+    ocrText: null,
+    shortcut: null,
+  };
+});
+
+/** Stand-in for the FTS5 prefix query: every non-`app:` word must prefix-match a word of the text. */
+function searchArchive(query: string, limit: number): ClipSummary[] {
+  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const apps = tokens.filter((t) => t.startsWith("app:")).map((t) => t.slice(4).replace(/\.exe$/, "")).filter(Boolean);
+  const words = tokens.filter((t) => !t.startsWith("app:"));
+  return [...clips, ...archive]
+    .filter((c) => {
+      const haystack = `${c.text ?? ""} ${c.ocrText ?? ""} ${c.sourceApp ?? ""}`.toLowerCase().split(/[^\p{L}\p{N}]+/u);
+      const app = c.sourceApp?.toLowerCase().replace(/\.exe$/, "") ?? "";
+      return words.every((w) => haystack.some((h) => h.startsWith(w))) && (!apps.length || apps.some((a) => app.includes(a)));
+    })
+    .slice(0, limit)
+    .map(summary);
+}
+
+const summary = ({ text: _t, html: _h, ...rest }: Clip): ClipSummary => rest;
+
+let nextSnippetId = 1;
+const snippet = (name: string, body: string, shortcut: string | null, minutesAgo: number): Snippet => ({
+  id: nextSnippetId++,
+  name,
+  body,
+  shortcut,
+  createdAt: now - minutesAgo * MIN,
+  updatedAt: now - minutesAgo * MIN,
+});
+let snippets: Snippet[] = [
+  snippet("Email signature", "Best regards,\nMarta López\nProduct Designer · Wincy", "Ctrl+Alt+S", 300),
+  snippet("Meeting notes header", "## Notes — {date} {time}\nAttendees: \nAgenda:\n- ", null, 900),
+  snippet("Bug report template", "**Steps to reproduce**\n1. \n\n**Expected**\n\n**Actual**\n\nVersion: Wincy 0.3.0 · {datetime}", "Alt+Shift+B", 2000),
+  snippet("Quote the clipboard", "> {clipboard}\n\n— copied on {date}", null, 4000),
+  snippet("Literal braces", "Use {{date} to type a literal {date} tag.", null, 6000),
+];
+
+// Combos "another app" already owns, so the conflicts list has something to show.
+const TAKEN_ELSEWHERE = new Set(["Ctrl+Alt+S"]);
+
+function shortcutConflicts(): string[] {
+  return [
+    ...clips.filter((c) => c.shortcut && TAKEN_ELSEWHERE.has(c.shortcut)).map((c) => `${c.shortcut} (pin)`),
+    ...snippets.filter((s) => s.shortcut && TAKEN_ELSEWHERE.has(s.shortcut)).map((s) => `${s.shortcut} (snippet)`),
+  ];
+}
+
+/** The backend's uniqueness rule across the main, pin and snippet shortcuts. */
+function assertFreeShortcut(shortcut: string, own: { clip?: number; snippet?: number }) {
+  const used =
+    shortcut === settings.shortcut ||
+    clips.some((c) => c.shortcut === shortcut && c.id !== own.clip) ||
+    snippets.some((s) => s.shortcut === shortcut && s.id !== own.snippet);
+  if (used) throw `${shortcut} is already used by Wincy`;
+}
+
+function shortcutsChanged() {
+  setStatus({ shortcutConflicts: shortcutConflicts() });
+}
 
 let settings: Settings = {
   shortcut: "Alt+V",
@@ -112,7 +199,11 @@ let status: Status = {
   shortcutError: new URLSearchParams(location.search).has("shortcut-error") ? "HotKey already registered" : null,
   systemAccent: "#C239B3",
   logDir: "C:\\Users\\me\\AppData\\Local\\dev.wincy.app\\logs",
+  shortcutConflicts: [],
+  // `?portable` in the dev URL behaves like the portable zip build.
+  portable: new URLSearchParams(location.search).has("portable"),
 };
+status.shortcutConflicts = shortcutConflicts();
 
 function setStatus(patch: Partial<Status>) {
   status = { ...status, ...patch };
@@ -133,7 +224,7 @@ export function mockListen<K extends keyof EventMap>(name: K, handler: (payload:
 }
 
 function find(id: unknown): Clip {
-  const clip = clips.find((c) => c.id === id);
+  const clip = clips.find((c) => c.id === id) ?? archive.find((c) => c.id === id);
   if (!clip) throw `clip ${String(id)} not found`;
   return clip;
 }
@@ -150,7 +241,51 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
   const result = ((): unknown => {
     switch (cmd) {
       case "get_clips":
-        return ordered().map(({ text: _t, html: _h, ...summary }) => summary);
+        return { clips: ordered().map(summary), total: clips.length + archive.length };
+      case "search_clips":
+        return searchArchive(String(args.query), Number(args.limit));
+      case "paste_text":
+        console.info(`[mock] paste text (${String(args.text).length} chars)`);
+        return null;
+      case "set_clip_shortcut": {
+        const clip = find(args.id);
+        const shortcut = (args.shortcut as string | null) ?? null;
+        if (!clip.pinned) throw "Only pinned clips can have a shortcut";
+        if (shortcut) assertFreeShortcut(shortcut, { clip: clip.id });
+        clip.shortcut = shortcut;
+        shortcutsChanged();
+        changed();
+        return null;
+      }
+      case "get_snippets":
+        return [...snippets].sort((a, b) => a.name.localeCompare(b.name));
+      case "save_snippet": {
+        const input = args.snippet as SnippetInput;
+        const name = input.name.trim();
+        if (name.length < 1 || name.length > 80) throw "The name must be 1 to 80 characters";
+        if (input.body.length < 1 || input.body.length > 100_000) throw "The text must be 1 to 100 000 characters";
+        if (input.shortcut) assertFreeShortcut(input.shortcut, { snippet: input.id ?? undefined });
+        const existing = snippets.find((x) => x.id === input.id);
+        const saved: Snippet = existing
+          ? { ...existing, name, body: input.body, shortcut: input.shortcut, updatedAt: Date.now() }
+          : { id: nextSnippetId++, name, body: input.body, shortcut: input.shortcut, createdAt: Date.now(), updatedAt: Date.now() };
+        snippets = [...snippets.filter((x) => x.id !== saved.id), saved];
+        shortcutsChanged();
+        queueMicrotask(() => emit("snippets-changed", null));
+        return saved;
+      }
+      case "delete_snippet":
+        snippets = snippets.filter((x) => x.id !== args.id);
+        shortcutsChanged();
+        queueMicrotask(() => emit("snippets-changed", null));
+        return null;
+      case "paste_snippet":
+        console.info(`[mock] paste snippet #${String(args.id)}`);
+        return null;
+      case "export_history":
+        return { clips: clips.length + archive.length, snippets: snippets.length };
+      case "import_history":
+        return { added: 12, merged: 30, skipped: 2, snippets: 1 };
       case "get_clip":
         return { ...find(args.id) };
       case "paste_clip": {
@@ -164,6 +299,10 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
       case "toggle_pin": {
         const clip = find(args.id);
         clip.pinned = !clip.pinned;
+        if (!clip.pinned && clip.shortcut) {
+          clip.shortcut = null;
+          shortcutsChanged();
+        }
         changed();
         return clip.pinned;
       }

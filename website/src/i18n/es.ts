@@ -132,7 +132,7 @@ const es: Dict = {
         fragment: "pins",
         keys: ["Alt+1–9"],
         title: "Deja arriba lo que fijas",
-        body: "Ctrl+P fija un elemento. Lo fijado nunca se borra solo y se queda arriba, y con Alt+1 a Alt+9 pegas los nueve primeros sin mirar.",
+        body: "Ctrl+P fija un elemento. Lo fijado nunca se borra solo y se queda arriba, y con Alt+1 a Alt+9 pegas los nueve primeros sin mirar. Dale a un fijado su propio atajo y se pega desde cualquier aplicación, sin abrir Wincy.",
       },
       {
         fragment: "plain",
@@ -150,7 +150,7 @@ const es: Dict = {
   },
   shortcuts: {
     title: "Atajos de teclado",
-    lead: "Wincy está pensado para el teclado. Cada atajo tiene también su botón, y puedes arrastrar la paleta desde la barra superior.",
+    lead: "Wincy está pensado para el teclado. Cada atajo tiene también su botón, y puedes arrastrar la paleta desde la barra superior. Los fijados y las plantillas pueden tener atajos propios que funcionan en cualquier aplicación.",
     typeLabel: "Escribe",
     rows: [
       { keys: ["Alt+V"], action: "Abrir Wincy desde cualquier aplicación (puedes cambiarlo)" },
@@ -159,9 +159,10 @@ const es: Dict = {
       { keys: ["Intro"], action: "Pegar" },
       { keys: ["Mayús+Intro"], action: "Pegar sin formato" },
       { keys: ["Alt+1–9"], action: "Pegar uno de los nueve primeros elementos (los fijados van primero)" },
+      { keys: ["Ctrl+K"], action: "Acciones rápidas: cambiar mayúsculas, formatear JSON, decodificar Base64 o una URL, abrir un enlace, guardar como plantilla" },
       { keys: ["Ctrl+P"], action: "Fijar o dejar de fijar" },
       { keys: ["Ctrl+Supr"], action: "Eliminar el elemento" },
-      { keys: ["Tab", "Mayús+Tab"], action: "Cambiar el filtro de tipo: todo, texto, enlaces, colores, código, imágenes, archivos" },
+      { keys: ["Tab", "Mayús+Tab"], action: "Cambiar el filtro de tipo: todo, texto, enlaces, colores, código, imágenes, archivos, plantillas" },
       { keys: ["Ctrl+Espacio"], action: "Mostrar u ocultar la vista previa" },
       { keys: ["Ctrl+,"], action: "Abrir los ajustes" },
       { keys: ["Esc"], action: "Borrar la búsqueda o, si ya está vacía, cerrar Wincy" },
@@ -204,6 +205,9 @@ const es: Dict = {
       ["Texto en imágenes", "Se puede buscar, con el OCR que trae Windows", "No"],
       ["Pegado rápido", "Alt+1 … Alt+9", "No"],
       ["Filtros por tipo", "Texto, enlaces, colores, código, imágenes, archivos", "No"],
+      ["Plantillas", "Sí, con variables de fecha, hora y portapapeles", "No"],
+      ["Acciones rápidas", "Cambiar mayúsculas, formatear JSON, codificar o decodificar Base64 y URL", "No"],
+      ["Exportar e importar", "A un archivo en tu PC", "No"],
       ["Sincronización en la nube", "No, todo se queda en tu PC", "Opcional, con cuenta de Microsoft"],
     ],
   },
@@ -232,7 +236,7 @@ const es: Dict = {
       },
     ],
     link: "Ir a la última versión",
-    note: "Todavía no está en winget y no hay versión portable (.zip).",
+    note: "Todavía no está en winget. ¿Prefieres no instalar nada? Cada versión trae también un .zip portable: extráelo y ejecuta wincy.exe. Guarda sus datos en su propia carpeta y no se actualiza solo.",
     smartscreen: {
       title: "Windows protegió su PC",
       moreInfo: "Más información",
@@ -254,7 +258,11 @@ const es: Dict = {
       },
       {
         q: "¿Dónde se guarda mi historial?",
-        a: "En una base de datos SQLite dentro de tu perfil de usuario de Windows, en la carpeta de datos de Wincy. Las imágenes copiadas se guardan ahí como archivos PNG. En Ajustes hay un botón que abre la carpeta en el Explorador de archivos.",
+        a: "En una base de datos SQLite dentro de tu perfil de usuario de Windows, en la carpeta de datos de Wincy. Las imágenes copiadas se guardan ahí como archivos PNG. En Ajustes hay un botón que abre la carpeta en el Explorador de archivos. La versión portable lo guarda todo en una carpeta data junto a wincy.exe.",
+      },
+      {
+        q: "¿Puedo hacer una copia del historial o llevármelo a otro PC?",
+        a: "Sí. Ajustes → Datos → Exportar guarda el historial y las plantillas, con o sin imágenes, en un archivo .wincy.json; Importar en el otro PC lo añade a lo que ya hay, sin duplicados. Los ajustes se quedan en cada PC. El archivo contiene lo que copiaste como texto sin cifrar, así que guárdalo en un lugar seguro.",
       },
       {
         q: "¿Guardará mis contraseñas?",
@@ -270,7 +278,7 @@ const es: Dict = {
       },
       {
         q: "¿Cómo se actualiza?",
-        a: "Wincy busca versiones nuevas en GitHub Releases al arrancar y te avisa cuando hay una. La instalas con un clic en Ajustes; las actualizaciones van firmadas y se verifican antes de instalarse. Puedes desactivar la comprobación.",
+        a: "Wincy busca versiones nuevas en GitHub Releases al arrancar y te avisa cuando hay una. La instalas con un clic en Ajustes; las actualizaciones van firmadas y se verifican antes de instalarse. Puedes desactivar la comprobación. La versión portable no puede sustituirse a sí misma: abre la página de descarga y cambias tú el wincy.exe.",
       },
       {
         q: "¿Por qué Windows me avisa al instalarlo?",

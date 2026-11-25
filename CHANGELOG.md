@@ -5,6 +5,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-25
+
+### Added
+
+- Quick actions: **Ctrl+K** (or the **Actions** button) lists what you can do with the selected clip; type to filter, Enter runs. Text: UPPERCASE, lowercase, Title Case, trim, collapse whitespace, remove line breaks, format or minify JSON, Base64 and URL encode / decode (only the actions that apply are shown); the result is pasted as plain text and the clip itself is not changed. Links: **Open in browser**. Files: **Show in Explorer**. Colors: paste as HEX, RGB or HSL. Also **Save as snippet** and, for pinned clips, **Set shortcut…**.
+- Snippets: reusable text with variables filled in when pasted (`{date}`, `{time}`, `{datetime}`, `{clipboard}`; `{{` for a literal `{`). Managed in Settings → **Snippets**, shown in the palette under the new **Snippets** filter and included in search.
+- Global shortcuts for pinned clips and snippets: paste them into the app you are using without opening the palette. Shortcuts that can't be registered are listed in Settings.
+- Export and import (Settings → **Data**): history and snippets to a `.wincy.json` file, with or without images. Import validates the file, merges with the current history without duplicates and skips secrets when **Ignore secrets** is on. Settings are not exported.
+- Portable version: `Wincy_X.Y.Z_x64-portable.zip`. With the `portable` file next to `wincy.exe`, all data is kept in a `data` folder beside it; it doesn't start with Windows and, instead of updating itself, opens the download page when a new version is out.
+- Full-text search index for large histories: beyond the newest 2,000 clips, search also finds older ones (word prefixes, accents ignored).
+
+### Changed
+
+- The **Tab** filter cycle ends with **Snippets**.
+- With more than 2,000 clips, the palette loads all pins and the newest 2,000 clips; older clips appear when you search.
+- The history database is upgraded automatically for snippets, shortcuts and the search index; the index is built once on the first start, which can take a moment with a large history.
+- Releases also include the portable zip; the release notes mention it.
+
 ## [0.2.1] - 2026-11-25
 
 ### Changed
@@ -44,7 +62,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Settings: shortcut, history size, launch at startup, paste directly, capture images, theme, language (English, Spanish).
 - Signed auto-updates from GitHub Releases.
 
-[Unreleased]: https://github.com/devnielo/wincy/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/devnielo/wincy/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/devnielo/wincy/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/devnielo/wincy/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/devnielo/wincy/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/devnielo/wincy/releases/tag/v0.1.0

@@ -174,7 +174,22 @@ pub fn show(app: &AppHandle, view: &str) {
     let Some(win) = app.get_webview_window(LABEL) else {
         return;
     };
-    let own = win.hwnd().map_or(0, |h| h.0 as isize);
+    remember_target(app);
+    if let Err(e) = place_near_cursor(app, &win) {
+        log::warn!("positioning palette failed: {e}");
+    }
+    let _ = win.show();
+    let _ = win.set_focus();
+    status::refresh_accent(app);
+    let _ = app.emit_to(LABEL, "palette-shown", Shown { view });
+}
+
+/// Makes the current foreground window the paste target (palette opening, pin/snippet shortcut).
+pub fn remember_target(app: &AppHandle) {
+    let own = app
+        .get_webview_window(LABEL)
+        .and_then(|w| w.hwnd().ok())
+        .map_or(0, |h| h.0 as isize);
     let foreground = unsafe { GetForegroundWindow() };
     let mut pid = 0;
     unsafe { GetWindowThreadProcessId(foreground, Some(&mut pid)) };
@@ -192,13 +207,6 @@ pub fn show(app: &AppHandle, view: &str) {
         // The palette itself being foreground (re-open) keeps the old target.
         PREVIOUS.store(0, Ordering::SeqCst);
     }
-    if let Err(e) = place_near_cursor(app, &win) {
-        log::warn!("positioning palette failed: {e}");
-    }
-    let _ = win.show();
-    let _ = win.set_focus();
-    status::refresh_accent(app);
-    let _ = app.emit_to(LABEL, "palette-shown", Shown { view });
 }
 
 fn is_taskbar(hwnd: HWND) -> bool {

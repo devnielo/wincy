@@ -1,9 +1,11 @@
 import { Button } from "@heroui/react";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useState } from "react";
-import { checkForUpdate, errorMessage, logError } from "../api";
+import { checkForUpdate, errorMessage, logError, openExternal } from "../api";
 import { useI18n } from "../i18n";
 import { useClipboardStore } from "../store/useClipboardStore";
+
+const DOWNLOAD_URL = "https://github.com/devnielo/wincy/releases/latest";
 
 type Status =
   | { kind: "idle" }
@@ -19,6 +21,8 @@ export function UpdateSection() {
   const setUpdate = useClipboardStore((s) => s.setUpdate);
   const installing = useClipboardStore((s) => s.installing);
   const setInstalling = useClipboardStore((s) => s.setInstalling);
+  // The updater can't replace a portable exe in place: send the user to the release page instead.
+  const portable = useClipboardStore((s) => s.status?.portable ?? false);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const busy =
     installing || status.kind === "checking" || status.kind === "downloading" || status.kind === "installing";
@@ -72,6 +76,24 @@ export function UpdateSection() {
           : update
             ? t("s.install", { version: update.version })
             : t("s.checkNow");
+
+  if (portable && update) {
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted" role="status">
+          {t("s.portableUpdate", { version: update.version })}
+        </p>
+        <Button
+          size="sm"
+          variant="primary"
+          className="shrink-0"
+          onPress={() => openExternal(DOWNLOAD_URL).catch((e: unknown) => setStatus({ kind: "error", message: errorMessage(e) }))}
+        >
+          {t("s.downloadPage")}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-between gap-3">

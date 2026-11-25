@@ -17,6 +17,40 @@ export interface ClipSummary {
   updatedAt: number; // unix ms, last copy/paste — list order key
   useCount: number; // times pasted from Wincy
   ocrText: string | null; // image only: first 500 chars of recognized text ("" = none found, null = not processed); full text in Clip
+  shortcut: string | null; // global shortcut that pastes this clip; pinned clips only
+}
+
+export interface ClipPage {
+  clips: ClipSummary[]; // all pinned + the newest 2 000 unpinned
+  total: number; // all clips in the database
+}
+
+export interface Snippet {
+  id: number;
+  name: string;
+  body: string; // raw, with {date} {time} {datetime} {clipboard} variables expanded at paste time
+  shortcut: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface SnippetInput {
+  id: number | null; // null = new
+  name: string;
+  body: string;
+  shortcut: string | null;
+}
+
+export interface ExportResult {
+  clips: number;
+  snippets: number;
+}
+
+export interface ImportResult {
+  added: number;
+  merged: number;
+  skipped: number;
+  snippets: number;
 }
 
 export interface Clip extends ClipSummary {
@@ -49,6 +83,8 @@ export interface Status {
   shortcutError: string | null;
   systemAccent: string | null; // "#rrggbb"
   logDir: string;
+  shortcutConflicts: string[]; // pin/snippet shortcuts that failed to register, e.g. "Alt+Shift+M (pin)"
+  portable: boolean;
 }
 
 export type View = "palette" | "settings";

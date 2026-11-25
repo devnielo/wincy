@@ -1,6 +1,6 @@
 [package]
 name = "wincy"
-version = "0.2.1"
+version = "0.3.0"
 description = "Keyboard-first clipboard manager for Windows"
 authors = ["Wincy contributors"]
 license = "MIT"
@@ -36,6 +36,7 @@ windows = { version = "0.62.2", features = ["Foundation", "Graphics_Imaging", "M
 tauri-plugin-log = "2.10.2"
 log = "0.4.35"
 base64 = "0.23.1"
+tauri-plugin-dialog = "2.8.4"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

@@ -2,9 +2,21 @@ import { getVersion } from "@tauri-apps/api/app";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { error as logToFile } from "@tauri-apps/plugin-log";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import type { Clip, ClipSummary, PaletteShownPayload, Settings, Status } from "./types";
+import type {
+  Clip,
+  ClipPage,
+  ClipSummary,
+  ExportResult,
+  ImportResult,
+  PaletteShownPayload,
+  Settings,
+  Snippet,
+  SnippetInput,
+  Status,
+} from "./types";
 
 /** False in a plain browser (`pnpm dev`): every call is then served by ./mock. */
 export const isTauri = "__TAURI_INTERNALS__" in window;
@@ -29,7 +41,16 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 }
 
 export const api = {
-  getClips: () => call<ClipSummary[]>("get_clips"),
+  getClips: () => call<ClipPage>("get_clips"),
+  searchClips: (query: string, limit: number) => call<ClipSummary[]>("search_clips", { query, limit }),
+  pasteText: (text: string) => call<void>("paste_text", { text }),
+  setClipShortcut: (id: number, shortcut: string | null) => call<void>("set_clip_shortcut", { id, shortcut }),
+  getSnippets: () => call<Snippet[]>("get_snippets"),
+  saveSnippet: (snippet: SnippetInput) => call<Snippet>("save_snippet", { snippet }),
+  deleteSnippet: (id: number) => call<void>("delete_snippet", { id }),
+  pasteSnippet: (id: number) => call<void>("paste_snippet", { id }),
+  exportHistory: (path: string, includeImages: boolean) => call<ExportResult>("export_history", { path, includeImages }),
+  importHistory: (path: string) => call<ImportResult>("import_history", { path }),
   getClip: (id: number) => call<Clip>("get_clip", { id }),
   pasteClip: (id: number, plain: boolean) => call<void>("paste_clip", { id, plain }),
   togglePin: (id: number) => call<boolean>("toggle_pin", { id }),
@@ -54,6 +75,9 @@ export interface EventMap {
   // The backend only sends ids; null comes from the browser mock, which has no window to hide.
   "preview-clip": { id: number | null };
   "status-changed": Status;
+  "snippets-changed": null;
+  /** A pin/snippet shortcut was pressed while Wincy was in front: it was ignored. */
+  "shortcut-in-use": null;
 }
 
 /** Subscribes to a backend event; resolves to the unsubscribe function. */
@@ -76,6 +100,29 @@ export async function openExternal(url: string): Promise<void> {
     return;
   }
   await openUrl(url);
+}
+
+export async function revealFile(path: string): Promise<void> {
+  if (isTauri) await revealItemInDir(path);
+  else console.info("[mock] reveal in Explorer");
+}
+
+const EXPORT_FILTERS = [{ name: "Wincy", extensions: ["wincy.json"] }];
+
+/** Save dialog for an export; null when cancelled. The browser mock pretends a file was picked. */
+export async function chooseExportPath(): Promise<string | null> {
+  const name = `wincy-${new Date().toISOString().slice(0, 10)}.wincy.json`;
+  if (!isTauri) return `C:\\Users\\me\\Documents\\${name}`;
+  const path = await saveDialog({ defaultPath: name, filters: EXPORT_FILTERS });
+  // The dialog doesn't always append the filter's extension to a typed name.
+  return path && !/\.json$/i.test(path) ? `${path}.wincy.json` : path;
+}
+
+/** Open dialog for an import; null when cancelled. */
+export async function chooseImportPath(): Promise<string | null> {
+  if (!isTauri) return "C:\\Users\\me\\Documents\\backup.wincy.json";
+  const path = await openDialog({ multiple: false, directory: false, filters: EXPORT_FILTERS });
+  return typeof path === "string" ? path : null;
 }
 
 export const appVersion = (): Promise<string> => (isTauri ? getVersion() : Promise.resolve("dev"));
