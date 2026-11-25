@@ -1,0 +1,58 @@
+---
+// One palette row, the anatomy of the app's ClipItem: leading visual, label, pin, "app · time", row actions, Alt N.
+import { Code, Files, Link, Pin, PinOff, Trash, Type } from "@lucide/astro";
+import type { DemoClip, Dict } from "../i18n/en";
+import { parseColor, rowLabel, rowMeta } from "../lib/clips";
+import shot from "../assets/demo-shot.svg";
+
+interface Props {
+  clip: DemoClip;
+  d: Dict["demo"];
+  lang: string;
+  index: number;
+  selected?: boolean;
+  /** Live rows (the demo) are listbox options; fragment rows are plain list items. */
+  id?: string;
+}
+const { clip, d, lang, index, selected = false, id } = Astro.props;
+const Icon = { text: Type, url: Link, code: Code, files: Files, color: Type, image: Type }[clip.kind];
+const rgb = clip.kind === "color" ? parseColor(clip.text) : null;
+const labelledby = id ? [`${id}-t`, clip.pinned ? `${id}-p` : "", `${id}-m`].filter(Boolean).join(" ") : undefined;
+---
+
+<li
+  id={id}
+  role={id ? "option" : undefined}
+  aria-selected={id ? (selected ? "true" : "false") : undefined}
+  aria-labelledby={labelledby}
+  class:list={["row", { "is-selected": selected, "is-pinned": clip.pinned }]}
+  data-i={id ? index : undefined}
+>
+  <span class="row-lead" aria-hidden="true">
+    {
+      rgb ? (
+        <span class="swatch" style={`background: rgb(${rgb.join(", ")})`} />
+      ) : clip.kind === "image" ? (
+        <img class="thumb" src={shot.src} alt="" width="28" height="28" draggable="false" />
+      ) : (
+        <Icon size={16} />
+      )
+    }
+  </span>
+  <span id={id && `${id}-t`} class:list={["row-text", { "is-code": clip.kind === "code" }]}>{rowLabel(clip, d)}</span>
+  <span id={id && `${id}-p`} class="row-pin" title={d.pinned}>
+    <Pin size={13} aria-hidden="true" />
+    <span class="sr-only">{d.pinned}</span>
+  </span>
+  <span id={id && `${id}-m`} class="row-meta">{rowMeta(clip, lang)}</span>
+  <span class="row-acts">
+    <button type="button" class="ab ab-icon" tabindex="-1" data-act="pin" data-tip={clip.pinned ? d.actions.unpin : d.actions.pin} data-keys="Ctrl P" aria-label={clip.pinned ? d.actions.unpin : d.actions.pin}>
+      <Pin size={15} class="i-pin" aria-hidden="true" />
+      <PinOff size={15} class="i-unpin" aria-hidden="true" />
+    </button>
+    <button type="button" class="ab ab-icon ab-danger" tabindex="-1" data-act="delete" data-tip={d.actions.delete} data-keys="Ctrl Delete" aria-label={d.actions.delete}>
+      <Trash size={15} aria-hidden="true" />
+    </button>
+  </span>
+  <kbd class="row-alt" aria-hidden="true">{index < 9 ? `Alt ${index + 1}` : ""}</kbd>
+</li>

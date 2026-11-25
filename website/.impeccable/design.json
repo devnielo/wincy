@@ -1,0 +1,325 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-25T12:26:00+01:00",
+  "title": "Design System: Wincy website",
+  "extensions": {
+    "colorMeta": {
+      "windows-accent": {
+        "role": "primary",
+        "displayName": "Windows Accent Blue",
+        "canonical": "#005fb8",
+        "tonalRamp": [
+          "oklch(15% 0.05 254)",
+          "oklch(25% 0.09 254)",
+          "oklch(35% 0.13 254)",
+          "oklch(45% 0.16 254)",
+          "oklch(55% 0.15 254)",
+          "oklch(68% 0.12 254)",
+          "oklch(82% 0.07 254)",
+          "oklch(95% 0.02 254)"
+        ]
+      },
+      "vault-blue": {
+        "role": "secondary",
+        "displayName": "Vault Blue",
+        "canonical": "#0b2747",
+        "tonalRamp": [
+          "oklch(15% 0.04 255)",
+          "oklch(26% 0.07 255)",
+          "oklch(36% 0.08 255)",
+          "oklch(46% 0.08 255)",
+          "oklch(58% 0.07 255)",
+          "oklch(70% 0.06 255)",
+          "oklch(83% 0.04 255)",
+          "oklch(95% 0.015 255)"
+        ]
+      },
+      "cabinet-grey": {
+        "role": "neutral",
+        "displayName": "Cabinet Grey",
+        "canonical": "#f4f4f5",
+        "tonalRamp": [
+          "oklch(15% 0.004 286)",
+          "oklch(25% 0.004 286)",
+          "oklch(37% 0.004 286)",
+          "oklch(50% 0.004 286)",
+          "oklch(63% 0.004 286)",
+          "oklch(76% 0.003 286)",
+          "oklch(88% 0.003 286)",
+          "oklch(96.7% 0.001 286)"
+        ]
+      },
+      "catalog-ink": {
+        "role": "neutral",
+        "displayName": "Catalog Ink",
+        "canonical": "#1b1b1f"
+      },
+      "pencil-grey": {
+        "role": "neutral",
+        "displayName": "Pencil Grey",
+        "canonical": "#56565f"
+      },
+      "rule-grey": {
+        "role": "neutral",
+        "displayName": "Rule Grey",
+        "canonical": "#e0e0e5"
+      },
+      "app-accent": {
+        "role": "tertiary",
+        "displayName": "App Accent (depictions only)",
+        "canonical": "#0485f7"
+      },
+      "smartscreen-blue": {
+        "role": "tertiary",
+        "displayName": "SmartScreen Blue (dialog depiction only)",
+        "canonical": "#0067c0"
+      },
+      "brand-violet": {
+        "role": "brand",
+        "displayName": "Brand Violet (logo only)",
+        "canonical": "#6d5bff"
+      },
+      "brand-teal": {
+        "role": "brand",
+        "displayName": "Brand Teal (logo only)",
+        "canonical": "#22b8cf"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The hero h1 only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headings, the privacy statement and the close."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Record, install-step and question headings."
+      },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "The paragraph under a section heading."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Answers, steps, list text."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Keycap legends and the version tag."
+      },
+      "app-ui": {
+        "displayName": "App UI",
+        "purpose": "Everything inside depicted app windows."
+      },
+      "app-code": {
+        "displayName": "App Code",
+        "purpose": "Code clips, the installer file name, colour values in the preview."
+      },
+      "statement": {
+        "displayName": "Statement",
+        "purpose": "The privacy band's statement, lit word by word."
+      },
+      "close": {
+        "displayName": "Close",
+        "purpose": "The closing line above the last Download button."
+      },
+      "question": {
+        "displayName": "Question",
+        "purpose": "FAQ questions; the hero lead from 1024px."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "Header links, table heads, notes, footer."
+      },
+      "label-small": {
+        "displayName": "Label small",
+        "purpose": "Keycaps inside the demo hint."
+      },
+      "app-input": {
+        "displayName": "App search field",
+        "purpose": "The palette's search input."
+      },
+      "app-meta": {
+        "displayName": "App meta",
+        "purpose": "Row meta, tooltips, chips, preview details."
+      },
+      "smartscreen-title": {
+        "displayName": "SmartScreen title",
+        "purpose": "The depicted Windows SmartScreen dialog only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "app-window",
+        "value": "0 18px 48px -14px rgb(6 28 66 / 0.42), 0 2px 8px rgb(6 28 66 / 0.12)",
+        "purpose": "Depicted app windows only (palette, preview, settings, tray menu, fragments). Dark: 0 18px 48px -14px rgb(0 0 0 / 0.7), 0 2px 8px rgb(0 0 0 / 0.4)."
+      },
+      {
+        "name": "big-keycap",
+        "value": "inset 0 -10px 0 var(--key-side), 0 22px 40px -22px rgb(0 0 0 / 0.45)",
+        "purpose": "The Alt and V keys of the close."
+      },
+      {
+        "name": "button-edge",
+        "value": "inset 0 -1px 0 rgb(0 0 0 / 0.28)",
+        "purpose": "The primary button's bottom edge; the quiet button uses 0.06."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "State changes: buttons, underlines, rows, chevrons (100-250ms)."
+      },
+      {
+        "name": "ease-enter",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "The hero entrance once on load: h1 rise 700ms, side fade-up 520ms, stage settle 900ms, keypress 360ms, palette open 260ms after 760ms; reopening later takes 180ms."
+      },
+      {
+        "name": "statement-lit",
+        "value": "scroll-driven view() timeline, per word",
+        "purpose": "The privacy statement lights up word by word inside its own section (browsers with animation-timeline)."
+      },
+      {
+        "name": "autoplay",
+        "value": "type 'fig' from 1.3s, paste at 2.9s, reset at 4.3s",
+        "purpose": "The hero ritual, once, when the palette is 60% visible; stops on first pointer, key, focus, wheel or touch; never under reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow",
+        "value": "374px"
+      },
+      {
+        "name": "phone-header",
+        "value": "399px"
+      },
+      {
+        "name": "tablet",
+        "value": "640px"
+      },
+      {
+        "name": "faq-open",
+        "value": "900px"
+      },
+      {
+        "name": "laptop",
+        "value": "1024px"
+      },
+      {
+        "name": "preview-window",
+        "value": "1200px"
+      },
+      {
+        "name": "desktop",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one primary action: Download for Windows.",
+      "html": "<a class=\"ds-btn-primary\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 15V3\"/><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/><path d=\"m7 10 5 5 5-5\"/></svg>Download for Windows</a>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 20px; border-radius: 8px; background: #005fb8; color: #fff; font: 500 1rem/1.2 'Schibsted Grotesk Variable', 'Segoe UI', sans-serif; text-decoration: none; box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.28); transition: background-color 150ms cubic-bezier(0.2, 0.8, 0.2, 1), transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1); } .ds-btn-primary:hover { background: #004f9a; transform: translateY(-1px); } .ds-btn-primary:active { transform: translateY(1px) scale(0.985); } .ds-btn-primary:focus-visible { outline: 2px solid #005fb8; outline-offset: 2px; }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "The secondary action beside the primary: View on GitHub.",
+      "html": "<a class=\"ds-btn-quiet\" href=\"#\">View on GitHub</a>",
+      "css": ".ds-btn-quiet { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 20px; border: 1px solid #cbcbd2; border-radius: 8px; background: #fff; color: #1b1b1f; font: 500 1rem/1.2 'Schibsted Grotesk Variable', 'Segoe UI', sans-serif; text-decoration: none; box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.06); transition: border-color 150ms, transform 150ms; } .ds-btn-quiet:hover { border-color: #56565f; transform: translateY(-1px); } .ds-btn-quiet:focus-visible { outline: 2px solid #005fb8; outline-offset: 2px; }"
+    },
+    {
+      "name": "Keycap Call Number",
+      "kind": "chip",
+      "refersTo": "keycap",
+      "description": "A shortcut set as physical keys; files a record under the key that calls it.",
+      "html": "<span class=\"ds-combo\"><kbd class=\"ds-key\">Shift</kbd><kbd class=\"ds-key\">Enter</kbd></span>",
+      "css": ".ds-combo { display: inline-flex; gap: 4px; } .ds-key { display: inline-grid; place-items: center; min-width: 1.75rem; height: 1.75rem; padding: 0 0.45rem; border: 1px solid #cbcbd2; border-bottom-width: 2px; border-radius: 5px; background: #fff; color: #1b1b1f; font: 500 0.8125rem/1 'Schibsted Grotesk Variable', 'Segoe UI', sans-serif; white-space: nowrap; }"
+    },
+    {
+      "name": "Ruled Record",
+      "kind": "card",
+      "refersTo": "record",
+      "description": "A capability filed as a ruled entry: title, call number, body, and the real window on wallpaper.",
+      "html": "<article class=\"ds-record\"><div class=\"ds-record-top\"><h3>Pastes plain text on demand</h3><span class=\"ds-combo\"><kbd class=\"ds-key\">Shift</kbd><kbd class=\"ds-key\">Enter</kbd></span></div><p>Text from a web page arrives without its fonts, colors and links.</p><div class=\"ds-panel\"><div class=\"ds-window\">Order #48213 has shipped</div></div></article>",
+      "css": ".ds-record { display: flex; flex-direction: column; padding-top: 20px; border-top: 1px solid #cbcbd2; font-family: 'Schibsted Grotesk Variable', 'Segoe UI', sans-serif; } .ds-record-top { display: flex; justify-content: space-between; gap: 16px; } .ds-record h3 { margin: 0; font-size: 1.25rem; font-weight: 500; line-height: 1.3; letter-spacing: -0.015em; color: #1b1b1f; } .ds-record p { margin: 8px 0 0; color: #56565f; } .ds-panel { display: flex; align-items: center; justify-content: center; margin-top: 20px; padding: 20px; border-radius: 12px; background: linear-gradient(160deg, #dce8f7, #9fc0ee); } .ds-window { width: min(420px, 100%); padding: 12px 14px; border: 1px solid rgb(0 0 0 / 0.09); border-radius: 8px; background: rgb(249 249 249 / 0.84); box-shadow: 0 18px 48px -14px rgb(6 28 66 / 0.42), 0 2px 8px rgb(6 28 66 / 0.12); font: 400 13.5px/1.4 'Segoe UI Variable Text', 'Segoe UI', sans-serif; color: #18181b; }"
+    },
+    {
+      "name": "Version Tag and Facts",
+      "kind": "custom",
+      "refersTo": "version-tag",
+      "description": "The hard facts under every Download button: the release as a tag, then dotted facts that wrap cleanly.",
+      "html": "<ul class=\"ds-facts\"><li>v0.1.0</li><li>Windows 10 and 11</li><li>Free and open source (MIT)</li></ul>",
+      "css": ".ds-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin: 0; padding: 0; list-style: none; color: #56565f; font: 400 0.875rem/1.5 'Schibsted Grotesk Variable', 'Segoe UI', sans-serif; } .ds-facts li { display: inline-flex; align-items: center; gap: 8px; } .ds-facts li::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: 0.6; } .ds-facts li:first-child { padding: 1px 7px; border-radius: 5px; background: #ececef; color: #1b1b1f; font-weight: 500; } .ds-facts li:first-child::before { display: none; }"
+    },
+    {
+      "name": "Header Navigation",
+      "kind": "nav",
+      "refersTo": "header",
+      "description": "Fixed 64px header: logo, anchors, EN/ES switch, Download in the right corner.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-brand\" href=\"#\">Wincy</a><a class=\"ds-link\" href=\"#\">Features</a><a class=\"ds-link\" href=\"#\">Shortcuts</a><span class=\"ds-lang\"><a aria-current=\"page\" href=\"#\">EN</a><a href=\"#\">ES</a></span></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 8px; height: 64px; padding: 0 16px; border-bottom: 1px solid #e0e0e5; background: #f4f4f5; font-family: 'Schibsted Grotesk Variable', 'Segoe UI', sans-serif; } .ds-brand { margin-right: 16px; color: #1b1b1f; font-size: 1.1875rem; font-weight: 500; text-decoration: none; } .ds-link { position: relative; padding: 10px 12px; color: #56565f; font-size: 0.9375rem; text-decoration: none; } .ds-link::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 6px; height: 1px; background: currentColor; transform: scaleX(0); transform-origin: right; transition: transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1); } .ds-link:hover { color: #1b1b1f; } .ds-link:hover::after { transform: scaleX(1); transform-origin: left; } .ds-lang { display: inline-flex; margin-left: auto; padding: 2px; border: 1px solid #cbcbd2; border-radius: 8px; } .ds-lang a { display: grid; place-items: center; min-width: 40px; min-height: 36px; border-radius: 6px; color: #56565f; font-size: 0.8125rem; font-weight: 500; text-decoration: none; } .ds-lang a[aria-current] { background: #1b1b1f; color: #f4f4f5; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Card Catalog in Windows 11 Material",
+    "overview": "The site files Wincy the way Wincy files a clipboard. Every capability is a ruled record with a heading, a call number made of keycaps (the shortcut that calls it) and the real window it describes; label and value lists are tracings; kind filters are divider tabs; pins are signal flags. The cabinet is neutral Mica grey, the records are ruled entries rather than boxes, and the product itself appears as live HTML copies of its own windows sitting on a flat, hard-edged Windows wallpaper. Density is calm and one-section-per-screen on a laptop. The one ground change is the deep-blue privacy band. Motion is a single authored moment: the hero desktop opens on Alt+V, types, narrows, previews and pastes once, then hands control to the visitor.",
+    "keyCharacteristics": [
+      "Neutral greys with no hue tint; one Windows-accent blue reserved for the chosen thing.",
+      "Schibsted Grotesk for the site's voice; Segoe UI Variable and Cascadia Mono for everything that depicts the app.",
+      "Real product UI, never illustrations: every window is a faithful copy of the app's components.",
+      "Keycaps as call numbers on records, rows of the shortcut list and the close.",
+      "Hairline rules organise records, shortcuts, questions and tracings."
+    ],
+    "rules": [
+      {
+        "name": "The Chosen Thing Rule",
+        "body": "Windows Accent Blue marks only what the visitor would choose or is choosing: the primary action, a link, a focus ring, the selected clip, the pressed filter. Nothing decorative is blue.",
+        "section": "colors"
+      },
+      {
+        "name": "The Logo-Only Gradient Rule",
+        "body": "The brand violet-to-teal lives in the logo tile and nowhere else: no hazes, glows, gradient text or tinted grounds.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Voices Rule",
+        "body": "Schibsted speaks for the site; Segoe UI and Cascadia speak for the app. Never set site copy in Cascadia, never set app UI in Schibsted.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Axis Rule",
+        "body": "Every block hangs off the wrap's left edge and the grid's split line; nothing is centred in the page except windows on their wallpaper.",
+        "section": "layout"
+      },
+      {
+        "name": "The Depth Is The App Rule",
+        "body": "Only things that are windows in the real product cast shadows or blur. No site card, button or band gets elevation.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do depict the product only with faithful copies of its real components, using the app tokens and the Segoe UI / Cascadia faces.",
+      "Do file each capability as a ruled record under the keycaps that call it.",
+      "Do keep Windows Accent Blue for the primary action, links, focus and selection.",
+      "Do keep EN and ES in sync in src/i18n, with no copy in the components.",
+      "Do keep every moving thing optional: the autoplay stops on first touch and never runs under reduced motion."
+    ],
+    "donts": [
+      "Don't use the brand violet or teal outside the logo: no haze, glow, gradient text or tinted grounds.",
+      "Don't put a box around a record or nest a card inside a card; windows sit on wallpaper, records are ruled.",
+      "Don't add shadows or blur to site elements; depth belongs to depicted windows.",
+      "Don't add illustrations, icon tiles, invented stats, testimonials or download counts."
+    ]
+  }
+}

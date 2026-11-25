@@ -1,217 +1,556 @@
 ---
-import { Code, Files, Link, Pin, Search, Type } from "@lucide/astro";
-import type { Dict } from "../i18n/en";
+// The hero demo: Wincy's palette (600x460) at the pointer, the preview window 8px beside it, on a desktop.
+// Mirrors src/components/{SearchBar,ClipItem,Footer,PreviewWindow}.tsx in the app.
+import {
+  ChevronUp,
+  ClipboardPaste,
+  Code,
+  Eye,
+  EyeOff,
+  Files,
+  Image,
+  Layers,
+  Link,
+  Palette as PaletteIcon,
+  Pause,
+  Pin,
+  PinOff,
+  Play,
+  Search,
+  SearchX,
+  Settings,
+  Trash,
+  Type,
+  Volume2,
+  Wifi,
+} from "@lucide/astro";
+import type { Dict, KindFilter } from "../i18n/en";
+import { colorValues, dateAgo, fill, parseColor } from "../lib/clips";
+import shot from "../assets/demo-shot.svg";
+import Row from "./Row.astro";
 
 const { t } = Astro.props as { t: Dict };
 const d = t.demo;
-const kindIcon = { text: Type, url: Link, code: Code, files: Files } as const;
+const lang = t.htmlLang;
+const filters: [KindFilter, typeof Layers][] = [
+  ["all", Layers],
+  ["text", Type],
+  ["url", Link],
+  ["color", PaletteIcon],
+  ["code", Code],
+  ["image", Image],
+  ["files", Files],
+];
+// Pins first, then the most recent: the order the app's database returns.
+const clips = [...d.items].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || a.ago - b.ago);
+const first = clips[0];
+const logo = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/logo.svg`;
+const firstRgb = first.kind === "color" ? parseColor(first.text) : null;
+const data = JSON.stringify({ d, lang, shot: shot.src }).replace(/</g, "\\u003c");
 ---
 
-<div
-  class="stage"
-  data-demo
-  data-pasted={d.pasted}
-  data-pasted-plain={d.pastedPlain}
->
-  <div class="press" aria-hidden="true"><kbd>Alt</kbd><kbd>V</kbd></div>
-  <svg class="pointer" viewBox="0 0 24 24" aria-hidden="true">
-    <path d="M5 3l14 8-6.2 1.6L9.6 19z" />
-  </svg>
-
-  <section class="palette" aria-label={d.label}>
-    <div class="palette-search">
-      <Search size={18} aria-hidden="true" />
-      <input
-        type="text"
-        role="combobox"
-        aria-expanded="true"
-        aria-controls="demo-list"
-        aria-autocomplete="list"
-        aria-label={d.search}
-        placeholder={d.search}
-        autocomplete="off"
-        spellcheck="false"
-      />
-    </div>
-    <ul id="demo-list" class="palette-list" role="listbox" aria-label={d.listLabel}>
-      {
-        d.items.map((item, i) => {
-          const Icon = item.kind === "color" || item.kind === "image" ? null : kindIcon[item.kind];
-          return (
-            <li
-              id={`clip-${i}`}
-              style={`--i:${i}`}
-              role="option"
-              aria-selected={i === 0 ? "true" : "false"}
-              data-kind={item.kind}
-              data-search={`${item.text} ${item.app} ${item.kind} ${d.kinds[item.kind]}`}
-            >
-              <span class="clip-kind" title={d.kinds[item.kind]}>
-                <span class="sr-only">{d.kinds[item.kind]}:</span>
-                {Icon && <Icon size={16} aria-hidden="true" />}
-                {item.kind === "color" && <span class="swatch" style={`background:${item.text}`} />}
-                {item.kind === "image" && (
-                  <svg class="thumb" viewBox="0 0 32 20" aria-hidden="true">
-                    <rect width="32" height="20" rx="3" fill="#2b3a67" />
-                    <circle cx="24" cy="6" r="3" fill="#ffd27a" />
-                    <path d="M0 20l10-10 7 6 5-4 10 8z" fill="#22b8cf" />
-                  </svg>
-                )}
-              </span>
-              <span class={`clip-text${item.kind === "code" ? " is-code" : ""}`}>{item.text}</span>
-              <span class="clip-app">{item.app}</span>
-              {item.pinned && (
-                <span class="clip-pin" title={d.pinned}>
-                  <Pin size={14} aria-hidden="true" />
-                  <span class="sr-only">{d.pinned}</span>
-                </span>
-              )}
-              <kbd class="clip-alt" aria-hidden="true">{i < 9 ? `Alt+${i + 1}` : ""}</kbd>
-            </li>
-          );
-        })
-      }
-    </ul>
-    <p class="palette-empty" hidden>{d.empty}</p>
-    <footer class="palette-hints" aria-hidden="true">
-      {
-        d.hints.map((h) => (
-          <span>
-            {h.keys.map((k) => <kbd>{k}</kbd>)}
-            {h.label}
-          </span>
-        ))
-      }
-    </footer>
-  </section>
-
-  <div class="closed" hidden>
-    <p>{d.closed}</p>
-    <button type="button" class="btn btn-small"><kbd>Alt</kbd><kbd>V</kbd> {d.reopen}</button>
-  </div>
+<div class="stage" data-demo>
+  <p class="stage-hint">
+    <span class="hint-keys" aria-hidden="true"><kbd>Alt</kbd><kbd>V</kbd></span>
+    <span class="hint-fine">{t.hero.tryIt}</span>
+    <span class="hint-touch">{t.hero.tryItTouch}</span>
+  </p>
   <p class="toast" role="status" aria-live="polite"></p>
+
+  <div class="desk">
+    <div class="win">
+    <svg class="pointer" viewBox="0 0 12 19" aria-hidden="true">
+      <path d="M.5.5v15.4l3.7-3.6 2.4 5.6 2.3-1-2.4-5.5h5.1z" />
+    </svg>
+
+    <section class="palette mica" aria-label={d.label} data-palette>
+      <div class="pal-head">
+        <Search size={16} class="pal-icon" aria-hidden="true" />
+        <input
+          id="demo-input"
+          class="pal-input"
+          type="text"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="demo-list"
+          aria-autocomplete="list"
+          aria-activedescendant="clip-0"
+          aria-label={d.searchLabel}
+          aria-describedby="demo-hint"
+          placeholder={d.search}
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="pal-filters" role="group" aria-label={fill(d.filterBy, { kind: d.kinds.all })} data-filters>
+          {
+            filters.map(([kind, Icon]) => (
+              <button
+                type="button"
+                class="ab ab-icon"
+                tabindex="-1"
+                aria-label={d.kinds[kind]}
+                aria-pressed={kind === "all" ? "true" : "false"}
+                data-kind={kind}
+                data-tip={d.kinds[kind]}
+              >
+                <Icon size={15} aria-hidden="true" />
+              </button>
+            ))
+          }
+        </div>
+        <span class="pal-sep" aria-hidden="true"></span>
+        <button type="button" class="ab ab-icon" tabindex="-1" data-act="settings" aria-label={d.actions.settings} data-tip={d.actions.settings} data-keys="Ctrl ,">
+          <Settings size={15} aria-hidden="true" />
+        </button>
+      </div>
+
+      <div class="pal-body">
+        <ul id="demo-list" class="pal-list" role="listbox" aria-label={d.listLabel} tabindex="-1">
+          {clips.map((clip, i) => <Row clip={clip} d={d} lang={lang} index={i} selected={i === 0} id={`clip-${i}`} />)}
+        </ul>
+        <p class="pal-empty" role="status" hidden>
+          <SearchX size={28} stroke-width={1.5} aria-hidden="true" />
+          <span>{d.empty}</span>
+        </p>
+      </div>
+
+      <footer class="pal-foot">
+        <button type="button" class="ab ab-text" tabindex="-1" data-act="paste" data-tip={d.actions.paste} data-keys="Enter">
+          <ClipboardPaste size={15} aria-hidden="true" /><span class="ab-label">{d.actions.paste}</span>
+        </button>
+        <button type="button" class="ab ab-text" tabindex="-1" data-act="plain" aria-label={d.actions.plainLong} data-tip={d.actions.plainLong} data-keys="Shift Enter">
+          <Type size={15} aria-hidden="true" /><span class="ab-label">{d.actions.plain}</span>
+        </button>
+        <button type="button" class="ab ab-icon" tabindex="-1" data-act="pin" data-pinned={String(!!first.pinned)} aria-label={first.pinned ? d.actions.unpin : d.actions.pin} data-tip={first.pinned ? d.actions.unpin : d.actions.pin} data-keys="Ctrl P">
+          <Pin size={15} class="i-pin" aria-hidden="true" />
+          <PinOff size={15} class="i-unpin" aria-hidden="true" />
+        </button>
+        <button type="button" class="ab ab-icon ab-danger" tabindex="-1" data-act="delete" aria-label={d.actions.delete} data-tip={d.actions.delete} data-keys="Ctrl Delete">
+          <Trash size={15} aria-hidden="true" />
+        </button>
+        <span class="pal-spacer"></span>
+        <button type="button" class="ab ab-icon" tabindex="-1" data-act="pause" aria-pressed="false" aria-label={d.actions.pause} data-tip={d.actions.pause}>
+          <Pause size={15} class="i-pause" aria-hidden="true" />
+          <Play size={15} class="i-play" aria-hidden="true" />
+          <span class="ab-paused">{d.actions.paused}</span>
+        </button>
+        <button type="button" class="ab ab-icon" tabindex="-1" data-act="preview" aria-pressed="true" aria-label={d.actions.previewHide} data-tip={d.actions.previewHide} data-keys="Ctrl Space">
+          <Eye size={15} class="i-on" aria-hidden="true" />
+          <EyeOff size={15} class="i-off" aria-hidden="true" />
+        </button>
+        <button type="button" class="ab ab-icon" tabindex="-1" data-act="settings" aria-label={d.actions.settings} data-tip={d.actions.settings} data-keys="Ctrl ,">
+          <Settings size={15} aria-hidden="true" />
+        </button>
+      </footer>
+    </section>
+    </div>
+
+    <section class="preview mica" aria-label={d.previewLabel} data-preview>
+      <div class="pv-body">
+        {firstRgb ? (
+          <div class="pv-color">
+            <div class="pv-swatch" style={`background: rgb(${firstRgb.join(", ")})`}></div>
+            <dl class="pv-values">{colorValues(firstRgb).map(([k, v]) => <><dt>{k}</dt><dd>{v}</dd></>)}</dl>
+          </div>
+        ) : first.kind === "code" ? (
+          <pre class="pv-code">{first.text}</pre>
+        ) : first.kind === "url" ? (
+          <p class="pv-url">{first.text}</p>
+        ) : (
+          <p class="pv-text">{first.text}</p>
+        )}
+      </div>
+      <footer class="pv-details">
+        <dl>
+          <dt>{d.preview.source}</dt><dd>{first.app}</dd>
+          <dt>{d.preview.uses}</dt><dd>{first.uses}</dd>
+          <dt>{d.preview.created}</dt><dd>{dateAgo(first.first, lang)}</dd>
+          <dt>{d.preview.updated}</dt><dd>{dateAgo(first.ago, lang)}</dd>
+          <dt>{d.preview.chars}</dt><dd>{first.text.length.toLocaleString(lang)}</dd>
+          <dt>{d.preview.lines}</dt><dd>{first.text.split("\n").length.toLocaleString(lang)}</dd>
+        </dl>
+        <p class="pv-chips">
+          {first.pinned && <span class="chip chip-accent">{d.pinned}</span>}
+          {first.rich && <span class="chip">{d.rich}</span>}
+        </p>
+      </footer>
+    </section>
+
+    <div class="closed" hidden>
+      <p>{d.closed}</p>
+      <button type="button" class="btn btn-tonal"><kbd>Alt</kbd><kbd>V</kbd> {d.reopen}</button>
+    </div>
+  </div>
+
+  <div class="stage-taskbar" aria-hidden="true">
+    <ChevronUp size={16} />
+    <img src={logo} alt="" width="18" height="18" />
+    <Wifi size={16} />
+    <Volume2 size={16} />
+  </div>
+
+  <p id="demo-hint" class="sr-only">{d.searchHint}</p>
+  <p class="sr-only" role="status" aria-live="polite" data-announce></p>
+  <script type="application/json" id="demo-data" is:inline set:html={data} />
 </div>
 
 <script>
+  import type { DemoClip, Dict, KindFilter } from "../i18n/en";
+  import { colorValues, dateAgo, fill, haystack, parseColor, rowLabel, score } from "../lib/clips";
+
+  type Clip = DemoClip & { id: number; pinned: boolean };
+  const KINDS: KindFilter[] = ["all", "text", "url", "color", "code", "image", "files"];
+  const PAGE = 8; // rows that fit the 460px palette, as in the app's useKeyboardNav
+
   const root = document.querySelector<HTMLElement>("[data-demo]");
-  if (root) initDemo(root);
+  if (root) init(root);
 
-  function initDemo(root: HTMLElement) {
-    const palette = root.querySelector<HTMLElement>(".palette")!;
-    const input = palette.querySelector("input")!;
-    const list = palette.querySelector<HTMLElement>(".palette-list")!;
-    const empty = palette.querySelector<HTMLElement>(".palette-empty")!;
-    const closed = root.querySelector<HTMLElement>(".closed")!;
-    const toast = root.querySelector<HTMLElement>(".toast")!;
-    const rows = [...list.querySelectorAll<HTMLLIElement>("[role=option]")];
+  function init(root: HTMLElement) {
+    const { d, lang, shot } = JSON.parse(root.querySelector("#demo-data")!.textContent!) as { d: Dict["demo"]; lang: string; shot: string };
+    const $ = <T extends Element = HTMLElement>(sel: string, el: ParentNode = root) => el.querySelector<T>(sel)!;
+    const palette = $("[data-palette]");
+    const input = $<HTMLInputElement>("#demo-input");
+    const list = $("#demo-list");
+    const empty = $(".pal-empty");
+    const preview = $("[data-preview]");
+    const closed = $(".closed");
+    const toast = $(".toast");
+    const announce = $("[data-announce]");
+    const filterGroup = $("[data-filters]");
+    const foot = $(".pal-foot");
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    const coarse = matchMedia("(pointer: coarse)");
 
-    const fold = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-    const haystacks = rows.map((r) => fold(r.dataset.search ?? ""));
-    // Every query word must appear in order (subsequence), which tolerates skipped letters like Fuse does for short queries.
-    const subseq = (hay: string, word: string) => {
-      let i = 0;
-      for (const c of hay) if (c === word[i] && ++i === word.length) return true;
-      return word.length === 0;
-    };
+    // Same sort as the server render, so row ids line up with clip ids.
+    const clips: Clip[] = [...d.items]
+      .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || a.ago - b.ago)
+      .map((c, id) => ({ ...c, pinned: !!c.pinned, id }));
+    const rows = new Map(clips.map((c) => [c.id, document.getElementById(`clip-${c.id}`) as HTMLLIElement]));
+    const hays = new Map(clips.map((c) => [c.id, haystack(c, d)]));
 
-    let visible = rows;
+    let order = clips.slice();
+    let visible: Clip[] = order;
+    let query = "";
+    let kind: KindFilter = "all";
     let selected = 0;
+    let showPreview = true;
+    let paused = false;
     let toastTimer = 0;
 
-    function select(index: number) {
-      selected = Math.max(0, Math.min(index, visible.length - 1));
-      const current = visible[selected];
-      for (const r of rows) r.setAttribute("aria-selected", String(r === current));
-      if (!current) return input.removeAttribute("aria-activedescendant");
-      input.setAttribute("aria-activedescendant", current.id);
-      // Scroll only the list: scrollIntoView would also scroll the page.
-      if (current.offsetTop < list.scrollTop) list.scrollTop = current.offsetTop;
-      else if (current.offsetTop + current.offsetHeight > list.scrollTop + list.clientHeight)
-        list.scrollTop = current.offsetTop + current.offsetHeight - list.clientHeight;
+    const current = () => visible[selected] as Clip | undefined;
+
+    function compute() {
+      let list: Clip[] = order;
+      if (query.trim()) {
+        list = order
+          .map((c, i) => ({ c, i, s: score(query, hays.get(c.id)!) }))
+          .filter((x): x is { c: Clip; i: number; s: number } => x.s !== null)
+          .sort((a, b) => a.s - b.s || a.i - b.i)
+          .map((x) => x.c);
+      }
+      visible = kind === "all" ? list : list.filter((c) => c.kind === kind);
+      selected = Math.max(0, Math.min(selected, visible.length - 1));
     }
 
-    function filter() {
-      const words = fold(input.value).split(/\s+/).filter(Boolean);
-      visible = rows.filter((r, i) => {
-        const match = words.every((w) => subseq(haystacks[i], w));
-        r.hidden = !match;
-        return match;
+    let shownKey = "";
+    let previewKey = "";
+
+    function render() {
+      const key = visible.map((c) => c.id).join();
+      // Moving rows only when the order changes keeps hover from churning the DOM.
+      if (key !== shownKey) {
+        shownKey = key;
+        const shown = new Set(visible.map((c) => c.id));
+        for (const [id, row] of rows) {
+          row.hidden = !shown.has(id);
+          if (row.hidden) row.classList.remove("is-selected"), row.setAttribute("aria-selected", "false");
+        }
+        list.append(...visible.map((c) => rows.get(c.id)!));
+      }
+      visible.forEach((c, i) => {
+        const row = rows.get(c.id)!;
+        const on = i === selected;
+        row.setAttribute("aria-selected", String(on));
+        row.classList.toggle("is-selected", on);
+        row.classList.toggle("is-pinned", c.pinned);
+        row.setAttribute("aria-labelledby", [`clip-${c.id}-t`, c.pinned ? `clip-${c.id}-p` : "", `clip-${c.id}-m`].filter(Boolean).join(" "));
+        row.querySelector(".row-alt")!.textContent = i < 9 ? `Alt ${i + 1}` : "";
+        setPinButton(row.querySelector<HTMLButtonElement>("[data-act=pin]")!, c.pinned);
       });
-      visible.forEach((r, i) => (r.querySelector(".clip-alt")!.textContent = i < 9 ? `Alt+${i + 1}` : ""));
+      const cur = current();
+      if (cur) input.setAttribute("aria-activedescendant", `clip-${cur.id}`);
+      else input.removeAttribute("aria-activedescendant");
       empty.hidden = visible.length > 0;
-      list.scrollTop = 0;
-      select(0);
+      empty.querySelector("span")!.textContent = clips.length ? d.empty : d.emptyHistory;
+      for (const btn of filterGroup.querySelectorAll<HTMLButtonElement>("[data-kind]")) btn.setAttribute("aria-pressed", String(btn.dataset.kind === kind));
+      filterGroup.setAttribute("aria-label", fill(d.filterBy, { kind: d.kinds[kind] }));
+      for (const act of ["paste", "plain", "pin", "delete"]) foot.querySelector<HTMLButtonElement>(`[data-act=${act}]`)!.disabled = !cur;
+      setPinButton(foot.querySelector<HTMLButtonElement>("[data-act=pin]")!, !!cur?.pinned);
+      renderPreview(cur);
+      scrollToSelected();
     }
 
-    function paste(row: HTMLLIElement | undefined, plain: boolean) {
-      if (!row) return;
-      select(visible.indexOf(row));
-      row.classList.remove("is-pasted");
-      void row.offsetWidth; // restart the flash animation
-      row.classList.add("is-pasted");
-      const label = plain ? root.dataset.pastedPlain : root.dataset.pasted;
-      toast.textContent = `${label}: ${row.querySelector(".clip-text")!.textContent}`;
+    function setPinButton(btn: HTMLButtonElement, pinned: boolean) {
+      const label = pinned ? d.actions.unpin : d.actions.pin;
+      btn.dataset.pinned = String(pinned);
+      btn.setAttribute("aria-label", label);
+      btn.dataset.tip = label;
+    }
+
+    // Scroll only the list: scrollIntoView would scroll the page too.
+    function scrollToSelected() {
+      const row = current() && rows.get(current()!.id);
+      if (!row) return void (list.scrollTop = 0);
+      if (row.offsetTop < list.scrollTop + 6) list.scrollTop = row.offsetTop - 6;
+      else if (row.offsetTop + row.offsetHeight > list.scrollTop + list.clientHeight - 6)
+        list.scrollTop = row.offsetTop + row.offsetHeight - list.clientHeight + 6;
+    }
+
+    function el(tag: string, cls = "", text?: string) {
+      const node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function renderPreview(c: Clip | undefined) {
+      preview.hidden = !showPreview || !c || palette.hidden;
+      const nextKey = c && !preview.hidden ? `${c.id}:${c.pinned}` : "";
+      if (!c || preview.hidden || nextKey === previewKey) return void (previewKey = nextKey);
+      previewKey = nextKey;
+      const body = $(".pv-body", preview);
+      const rgb = c.kind === "color" ? parseColor(c.text) : null;
+      let content: HTMLElement;
+      if (rgb) {
+        content = el("div", "pv-color");
+        const swatch = el("div", "pv-swatch");
+        swatch.style.background = `rgb(${rgb.join(", ")})`;
+        const dl = el("dl", "pv-values");
+        for (const [k, v] of colorValues(rgb)) dl.append(el("dt", "", k), el("dd", "", v));
+        content.append(swatch, dl);
+      } else if (c.kind === "image") {
+        content = el("img", "pv-image");
+        Object.assign(content, { src: shot, alt: "" });
+      } else if (c.kind === "files") {
+        content = el("ul", "pv-files");
+        for (const f of c.files ?? []) content.append(el("li", "", f));
+      } else content = el(c.kind === "code" ? "pre" : "p", `pv-${c.kind === "url" ? "url" : c.kind === "code" ? "code" : "text"}`, c.text);
+      body.replaceChildren(content);
+      body.scrollTop = 0;
+
+      const dl = el("dl");
+      const add = (k: string, v: string | number) => dl.append(el("dt", "", k), el("dd", "", String(v)));
+      add(d.preview.source, c.app);
+      add(d.preview.uses, c.uses);
+      add(d.preview.created, dateAgo(c.first, lang));
+      add(d.preview.updated, dateAgo(c.ago, lang));
+      if (c.kind !== "image" && c.kind !== "files") {
+        add(d.preview.chars, c.text.length.toLocaleString(lang));
+        add(d.preview.lines, c.text.split("\n").length.toLocaleString(lang));
+      }
+      if (c.size) add(d.preview.size, `${c.size[0]}×${c.size[1]}`);
+      if (c.files && c.files.length > 1) add(d.kinds.files, fill(d.preview.files, { n: c.files.length }));
+      const chips = el("p", "pv-chips");
+      if (c.pinned) chips.append(el("span", "chip chip-accent", d.pinned));
+      if (c.rich) chips.append(el("span", "chip", d.rich));
+      $(".pv-details", preview).replaceChildren(dl, chips);
+    }
+
+    function update(next: { query?: string; kind?: KindFilter; selected?: number } = {}) {
+      if (next.query !== undefined) query = next.query;
+      if (next.kind !== undefined) kind = next.kind;
+      if (next.selected !== undefined) selected = next.selected;
+      compute();
+      render();
+    }
+
+    function showToast(text: string, quiet = false) {
+      toast.setAttribute("aria-live", quiet ? "off" : "polite");
+      toast.textContent = text;
       toast.classList.add("is-visible");
       clearTimeout(toastTimer);
       toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 2400);
+    }
+
+    function paste(index: number, plain: boolean, quiet = false) {
+      const c = visible[index];
+      if (!c) return;
+      update({ selected: index });
+      const row = rows.get(c.id)!;
+      row.classList.add("is-pasted");
+      window.setTimeout(() => row.classList.remove("is-pasted"), 600);
+      showToast(`${plain ? d.pastedPlain : d.pasted}: ${rowLabel(c, d)}`, quiet);
+    }
+
+    function togglePin() {
+      const c = current();
+      if (!c) return;
+      c.pinned = !c.pinned;
+      order = order.slice().sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.ago - b.ago);
+      compute();
+      update({ selected: Math.max(0, visible.indexOf(c)) }); // the selection follows the clip, like the app
+      announce.textContent = c.pinned ? d.pinned : d.actions.unpin;
+    }
+
+    function remove() {
+      const c = current();
+      if (!c) return;
+      order = order.filter((x) => x !== c);
+      rows.get(c.id)!.remove();
+      rows.delete(c.id);
+      clips.splice(clips.indexOf(c), 1);
+      update();
+    }
+
+    function setKind(next: KindFilter) {
+      update({ kind: next, selected: 0 });
+      announce.textContent = fill(d.filterBy, { kind: d.kinds[next] });
+    }
+
+    function togglePreview() {
+      showPreview = !showPreview;
+      const btn = foot.querySelector<HTMLButtonElement>("[data-act=preview]")!;
+      const label = showPreview ? d.actions.previewHide : d.actions.previewShow;
+      btn.setAttribute("aria-pressed", String(showPreview));
+      btn.setAttribute("aria-label", label);
+      btn.dataset.tip = label;
+      render();
+    }
+
+    function togglePause() {
+      paused = !paused;
+      const btn = foot.querySelector<HTMLButtonElement>("[data-act=pause]")!;
+      const label = paused ? d.actions.resume : d.actions.pause;
+      btn.setAttribute("aria-pressed", String(paused));
+      btn.setAttribute("aria-label", label);
+      btn.dataset.tip = label;
     }
 
     function setOpen(open: boolean) {
       palette.hidden = !open;
       closed.hidden = open;
       if (open) {
+        update({ query: "", kind: "all", selected: 0 }); // the app resets on every open
         input.value = "";
-        filter();
-        input.focus();
+        if (!coarse.matches) input.focus({ preventScroll: true });
       } else {
-        closed.querySelector("button")!.focus();
+        preview.hidden = true;
+        closed.querySelector("button")!.focus({ preventScroll: true });
       }
     }
 
-    input.addEventListener("input", filter);
+    const act: Record<string, () => void> = {
+      paste: () => paste(selected, false),
+      plain: () => paste(selected, true),
+      pin: togglePin,
+      delete: remove,
+      pause: togglePause,
+      preview: togglePreview,
+      settings: () => showToast(d.settingsNote),
+    };
+
+    input.addEventListener("input", () => update({ query: input.value, selected: 0 }));
     input.addEventListener("keydown", (e) => {
-      if (e.altKey && /^Digit[1-9]$/.test(e.code)) {
-        e.preventDefault();
-        paste(visible[Number(e.code.slice(5)) - 1], false);
-        return;
+      if (e.isComposing) return;
+      const alt = e.altKey && !e.ctrlKey && !e.metaKey; // AltGr arrives as Ctrl+Alt: never treat it as Alt
+      const ctrl = e.ctrlKey && !e.altKey && !e.metaKey;
+      const last = visible.length - 1;
+      let run: (() => void) | null = null;
+      if (alt && /^Digit[1-9]$/.test(e.code)) run = () => paste(Number(e.code.slice(5)) - 1, false);
+      else if (ctrl) {
+        run =
+          ({ p: togglePin, delete: remove, " ": togglePreview, ",": act.settings, home: () => update({ selected: 0 }), end: () => update({ selected: last }) } as Record<string, () => void>)[
+            e.key.toLowerCase()
+          ] ?? null;
+      } else if (!e.altKey && !e.metaKey) {
+        run =
+          (
+            {
+              ArrowDown: () => update({ selected: selected + 1 }),
+              ArrowUp: () => update({ selected: selected - 1 }),
+              PageDown: () => update({ selected: selected + PAGE }),
+              PageUp: () => update({ selected: selected - PAGE }),
+              Home: query ? undefined : () => update({ selected: 0 }),
+              End: query ? undefined : () => update({ selected: last }),
+              Enter: () => paste(selected, e.shiftKey),
+              // Past the last filter (or before the first) Tab leaves the demo, so the page never traps focus.
+              Tab: kind === (e.shiftKey ? "all" : "files") ? undefined : () => setKind(KINDS[KINDS.indexOf(kind) + (e.shiftKey ? -1 : 1)]),
+              Escape: () => (query ? ((input.value = ""), update({ query: "", selected: 0 })) : setOpen(false)),
+            } as Record<string, (() => void) | undefined>
+          )[e.key] ?? null;
       }
-      switch (e.key) {
-        case "ArrowDown":
-          select(selected + 1);
-          break;
-        case "ArrowUp":
-          select(selected - 1);
-          break;
-        case "Enter":
-          paste(visible[selected], e.shiftKey);
-          break;
-        case "Escape":
-          if (input.value) {
-            input.value = "";
-            filter();
-          } else setOpen(false);
-          break;
-        default:
-          return;
-      }
+      if (!run) return;
       e.preventDefault();
+      run();
     });
 
-    // mousedown would steal focus from the search field, which the real palette never loses.
-    list.addEventListener("mousedown", (e) => e.preventDefault());
-    list.addEventListener("click", (e) => {
-      const row = (e.target as Element).closest<HTMLLIElement>("[role=option]");
-      if (row) paste(row, e.shiftKey);
+    // Buttons never take focus from the search field, as in the app.
+    palette.addEventListener("mousedown", (e) => {
+      if (e.target !== input) e.preventDefault();
     });
     palette.addEventListener("click", (e) => {
-      if (e.target !== input) input.focus({ preventScroll: true });
+      const target = e.target as Element;
+      const button = target.closest<HTMLButtonElement>("button");
+      const row = target.closest<HTMLLIElement>("[role=option]");
+      if (button?.dataset.kind) setKind(button.dataset.kind as KindFilter);
+      else if (button?.dataset.act) {
+        if (row) update({ selected: visible.findIndex((c) => rows.get(c.id) === row) });
+        act[button.dataset.act]();
+      } else if (row) paste(visible.findIndex((c) => rows.get(c.id) === row), e.shiftKey);
+      if (target !== input && !coarse.matches) input.focus({ preventScroll: true });
+    });
+    // Hovering selects, as in the app, so the preview follows the pointer.
+    list.addEventListener("mousemove", (e) => {
+      const row = (e.target as Element).closest<HTMLLIElement>("[role=option]");
+      const i = row ? visible.findIndex((c) => rows.get(c.id) === row) : -1;
+      if (i >= 0 && i !== selected) update({ selected: i });
     });
     closed.querySelector("button")!.addEventListener("click", () => setOpen(true));
     document.addEventListener("keydown", (e) => {
-      if (palette.hidden && e.altKey && e.code === "KeyV") {
+      if (palette.hidden && e.altKey && !e.ctrlKey && e.code === "KeyV") {
         e.preventDefault();
         setOpen(true);
       }
     });
+
+    update();
+    // The entrance plays once, on load; after it, opening again is quick.
+    palette.addEventListener("animationend", (e) => e.target === palette && root.classList.add("is-ready"));
+
+    // The signature moment, once: type "fig", the list narrows to the colour from Figma, its preview opens, Enter.
+    if (reduced.matches) return;
+    let timers: number[] = [];
+    const stop = () => {
+      if (!timers.length) return;
+      timers.forEach(clearTimeout);
+      timers = [];
+      input.value = "";
+      update({ query: "", selected: 0 });
+      root.classList.remove("is-autoplay");
+    };
+    for (const type of ["pointerdown", "keydown", "focusin", "wheel", "touchstart"]) root.addEventListener(type, stop, { passive: true });
+    const at = (ms: number, fn: () => void) => timers.push(window.setTimeout(fn, ms));
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        observer.disconnect();
+        root.classList.add("is-autoplay");
+        [..."fig"].forEach((ch, i) =>
+          at(1300 + i * 150, () => {
+            input.value += ch;
+            update({ query: input.value, selected: 0 });
+          }),
+        );
+        at(2900, () => paste(0, false, true));
+        at(4300, () => {
+          timers = [];
+          input.value = "";
+          update({ query: "", selected: 0 });
+          root.classList.remove("is-autoplay");
+        });
+      },
+      { threshold: 0.6 },
+    );
+    observer.observe(palette);
   }
 </script>

@@ -1,7 +1,7 @@
 ---
-import "@fontsource-variable/bricolage-grotesque";
-import "@fontsource-variable/instrument-sans";
+import "@fontsource-variable/schibsted-grotesk";
 import "../styles/global.css";
+import { Menu, X } from "@lucide/astro";
 import { getAbsoluteLocaleUrl, getRelativeLocaleUrl } from "astro:i18n";
 import GitHubMark from "../components/GitHubMark.astro";
 import { REPO_URL, DOWNLOAD_URL } from "../consts";
@@ -13,6 +13,13 @@ const langs = Object.keys(dictionaries) as Lang[];
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const canonical = getAbsoluteLocaleUrl(lang);
 const ogImage = new URL(`${base}/og.png`, Astro.site).href;
+const sections = [
+  ["features", t.nav.features],
+  ["shortcuts", t.nav.shortcuts],
+  ["privacy", t.nav.privacy],
+  ["install", t.nav.install],
+  ["faq", t.nav.faq],
+] as const;
 ---
 
 <!doctype html>
@@ -20,6 +27,7 @@ const ogImage = new URL(`${base}/og.png`, Astro.site).href;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <title>{t.meta.title}</title>
     <meta name="description" content={t.meta.description} />
     <link rel="canonical" href={canonical} />
@@ -27,8 +35,8 @@ const ogImage = new URL(`${base}/og.png`, Astro.site).href;
     <link rel="alternate" hreflang="x-default" href={getAbsoluteLocaleUrl("en")} />
     <link rel="icon" href={`${base}/logo.svg`} type="image/svg+xml" />
     <link rel="sitemap" href={`${base}/sitemap-index.xml`} />
-    <meta name="theme-color" content="#f6f5fb" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0e0d1a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4f4f5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121214" media="(prefers-color-scheme: dark)" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Wincy" />
@@ -38,67 +46,62 @@ const ogImage = new URL(`${base}/og.png`, Astro.site).href;
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content={t.meta.logoAlt} />
+    <meta property="og:image:alt" content={t.meta.ogAlt} />
     <meta property="og:locale" content={t.ogLocale} />
     {langs.filter((l) => l !== lang).map((l) => <meta property="og:locale:alternate" content={dictionaries[l].ogLocale} />)}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={t.meta.title} />
     <meta name="twitter:description" content={t.meta.description} />
     <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image:alt" content={t.meta.ogAlt} />
   </head>
   <body>
     <a class="skip" href="#main">{t.nav.skip}</a>
-    <header class="site-header wrap">
-      <a class="brand" href={getRelativeLocaleUrl(lang)}>
-        <img src={`${base}/logo.svg`} alt="" width="32" height="32" />
-        <span>Wincy</span>
-      </a>
-      <nav class="site-nav" aria-label={t.nav.label}>
-        <a href="#features">{t.nav.features}</a>
-        <a href="#shortcuts">{t.nav.shortcuts}</a>
-        <a href="#privacy">{t.nav.privacy}</a>
-        <a href="#install">{t.nav.install}</a>
-        <a href="#faq">{t.nav.faq}</a>
-      </nav>
-      <div class="header-tools">
-        <nav class="lang" aria-label={t.nav.language}>
-          {
-            langs.map((l) => (
-              <a
-                href={getRelativeLocaleUrl(l)}
-                hreflang={l}
-                lang={l}
-                aria-current={l === lang ? "page" : undefined}
-              >
-                {l.toUpperCase()}
-                <span class="sr-only"> ({dictionaries[l].languageName})</span>
-              </a>
-            ))
-          }
-        </nav>
-        <a class="icon-link" href={REPO_URL} aria-label="GitHub">
-          <GitHubMark />
+    <header class="site-header">
+      <div class="wrap header-inner">
+        <a class="brand" href={getRelativeLocaleUrl(lang)}>
+          <img src={`${base}/logo.svg`} alt="" width="28" height="28" />
+          <span>Wincy</span>
         </a>
-      </div>
-    </header>
-
-    <main id="main">
-      <slot />
-    </main>
-
-    <footer class="site-footer">
-      <div class="wrap footer-inner">
-        <div class="footer-brand">
-          <img src={`${base}/logo.svg`} alt={t.meta.logoAlt} width="40" height="40" loading="lazy" />
-          <p>{t.footer.license}</p>
+        <nav class="site-nav" aria-label={t.nav.label}>
+          {sections.map(([id, label]) => <a class="nav-link" href={`#${id}`}>{label}</a>)}
+        </nav>
+        <div class="header-tools">
+          <nav class="lang" aria-label={t.nav.language}>
+            {
+              langs.map((l) => (
+                <a href={getRelativeLocaleUrl(l)} hreflang={l} lang={l} aria-current={l === lang ? "page" : undefined}>
+                  {l.toUpperCase()}
+                  <span class="sr-only"> ({dictionaries[l].languageName})</span>
+                </a>
+              ))
+            }
+          </nav>
+          <a class="icon-btn" href={REPO_URL} aria-label="GitHub">
+            <GitHubMark size={20} />
+          </a>
+          <a class="btn btn-primary btn-sm header-download" href={DOWNLOAD_URL}>
+            <span class="label-long">{t.hero.download}</span>
+            <span class="label-short">{t.nav.download}</span>
+          </a>
+          <button type="button" class="icon-btn menu-btn" popovertarget="site-menu" aria-label={t.nav.menu}>
+            <Menu size={22} aria-hidden="true" />
+          </button>
         </div>
-        <ul class="footer-links">
-          <li><a href={REPO_URL}>{t.footer.source}</a></li>
-          <li><a href={DOWNLOAD_URL}>{t.footer.releases}</a></li>
-          <li><a href={`${REPO_URL}/issues`}>{t.footer.issues}</a></li>
-          <li><a href={`${REPO_URL}/blob/main/LICENSE`}>MIT</a></li>
-        </ul>
-        <nav class="footer-lang" aria-label={t.nav.language}>
+      </div>
+      <div id="site-menu" class="menu" popover>
+        <div class="menu-head">
+          <span class="brand"><img src={`${base}/logo.svg`} alt="" width="28" height="28" /><span>Wincy</span></span>
+          <button type="button" class="icon-btn" popovertarget="site-menu" popovertargetaction="hide" aria-label={t.nav.closeMenu}>
+            <X size={22} aria-hidden="true" />
+          </button>
+        </div>
+        <nav aria-label={t.nav.label}>
+          <ul class="menu-links">
+            {sections.map(([id, label]) => <li><a href={`#${id}`}>{label}</a></li>)}
+          </ul>
+        </nav>
+        <nav class="lang lang-wide" aria-label={t.nav.language}>
           {
             langs.map((l) => (
               <a href={getRelativeLocaleUrl(l)} hreflang={l} lang={l} aria-current={l === lang ? "page" : undefined}>
@@ -108,6 +111,19 @@ const ogImage = new URL(`${base}/og.png`, Astro.site).href;
           }
         </nav>
       </div>
-    </footer>
+    </header>
+
+    <main id="main">
+      <slot />
+    </main>
+    <slot name="footer" />
+
+    <script>
+      // A link in the menu jumps to its section; close the menu so the section shows.
+      const menu = document.getElementById("site-menu");
+      menu?.addEventListener("click", (e) => {
+        if ((e.target as Element).closest("a")) menu.hidePopover();
+      });
+    </script>
   </body>
 </html>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <!-- Sample image for the Wincy demo's image clip. Authored for the site by hand; not a real screenshot. -->
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1">
+      <stop offset="0" stop-color="#f59f6b"/>
+      <stop offset=".55" stop-color="#f7c98b"/>
+      <stop offset="1" stop-color="#fbe3b6"/>
+    </linearGradient>
+    <linearGradient id="lake" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9a77a"/>
+      <stop offset="1" stop-color="#7c5a63"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#sky)"/>
+  <circle cx="860" cy="330" r="92" fill="#fff4d6"/>
+  <path d="M0 430 L170 300 L300 390 L470 250 L640 400 L760 330 L900 420 L1060 290 L1280 410 V720 H0 Z" fill="#8a6170"/>
+  <path d="M0 470 L220 380 L380 450 L560 360 L760 470 L940 400 L1120 470 L1280 430 V720 H0 Z" fill="#5d4458"/>
+  <rect y="500" width="1280" height="220" fill="url(#lake)"/>
+  <path d="M780 520 H940 M800 552 H920 M820 584 H900" stroke="#fff4d6" stroke-opacity=".55" stroke-width="8" stroke-linecap="round"/>
+  <path d="M0 640 C220 610 420 660 640 640 S1060 610 1280 650 V720 H0 Z" fill="#3b2b3d"/>
+</svg>

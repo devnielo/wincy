@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/styles/global.css"
+        ],
+        "createdAt": "2026-11-25T10:40:15.003Z",
+        "reason": "Claude: the demo replicates the real Wincy app's Windows 11 Fluent list-selection pill (same indicator in src/components/ClipItem.tsx), not a card accent"
+      }
+    ]
+  }
+}

@@ -1,231 +1,418 @@
 ---
 import {
-  AppWindow,
+  ArrowLeft,
   ArrowRight,
-  Check,
   ChevronDown,
-  ClipboardType,
+  ChevronUp,
+  ClipboardPaste,
+  Code,
   Download,
-  Feather,
-  HardDrive,
+  Files,
+  FileDown,
+  Image,
   Info,
+  Layers,
+  Link,
+  Palette as PaletteIcon,
   Pin,
-  RefreshCw,
+  Plus,
   Search,
-  ShieldCheck,
-  Sparkles,
+  Settings,
+  Trash,
+  Type,
+  Volume2,
+  Wifi,
+  X,
 } from "@lucide/astro";
+import { getRelativeLocaleUrl } from "astro:i18n";
 import Base from "../layouts/Base.astro";
 import GitHubMark from "./GitHubMark.astro";
 import Keys from "./Keys.astro";
 import Palette from "./Palette.astro";
-import { DOWNLOAD_URL, REPO_URL } from "../consts";
+import Row from "./Row.astro";
+import { DOWNLOAD_URL, INSTALLER, REPO_URL, SUPPORT_URL, VERSION } from "../consts";
 import { dictionaries, type Lang } from "../i18n";
 
 const { lang } = Astro.props as { lang: Lang };
 const t = dictionaries[lang];
-const featureIcons = {
-  palette: AppWindow,
-  detect: Sparkles,
-  privacy: ShieldCheck,
-  plain: ClipboardType,
-  pin: Pin,
-  search: Search,
-  native: Feather,
-  local: HardDrive,
-  update: RefreshCw,
-} as const;
-type FeatureIcon = keyof typeof featureIcons;
+const d = t.demo;
+const langs = Object.keys(dictionaries) as Lang[];
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const logo = `${base}/logo.svg`;
+const kindIcons = [Layers, Type, Link, PaletteIcon, Code, Image, Files];
+const ignored = ["bitwarden.exe", "1password.exe", "keepass.exe", "keepassxc.exe", "enpass.exe", "dashlane.exe", "lastpass.exe", "nordpass.exe", "proton pass.exe"];
+// The record fragments reuse the demo's own clips: one of each kind, the two pins, the rich-text clip.
+const byKind = (k: string) => d.items.find((c) => c.kind === k)!;
+const kindsRows = [byKind("color"), byKind("url"), byKind("image"), d.items[5], byKind("files"), d.items[7]];
+const pinRows = [d.items[0], d.items[1], d.items[2]];
+const rich = d.items.find((c) => c.rich)!;
+const code = d.items[5]; // the multi-line function: what the preview shows that a row cannot
+const ss = t.install.smartscreen;
+const facts = [`v${VERSION}`, ...t.hero.facts];
 ---
 
 <Base lang={lang}>
-  <section class="hero wrap" aria-labelledby="hero-title">
-    <div class="hero-copy">
-      <h1 id="hero-title">{t.hero.title}</h1>
-      <p class="hero-lead">{t.hero.lead}</p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href={DOWNLOAD_URL}>
-          <Download size={20} aria-hidden="true" />
-          {t.hero.download}
-        </a>
-        <a class="btn btn-ghost" href={REPO_URL}>
-          <GitHubMark />
-          {t.hero.github}
-        </a>
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div class="hero-head">
+        <h1 id="hero-title">{t.hero.title}</h1>
+        <div class="hero-side">
+          <p class="hero-lead">{t.hero.lead}</p>
+          <div class="actions">
+            <a class="btn btn-primary" href={DOWNLOAD_URL}>
+              <Download size={18} aria-hidden="true" />
+              {t.hero.download}
+            </a>
+            <a class="btn btn-quiet" href={REPO_URL} aria-label={t.hero.github}>
+              <GitHubMark size={18} />
+              <span class="label">{t.hero.github}</span>
+            </a>
+          </div>
+          <ul class="facts">{facts.map((f) => <li>{f}</li>)}</ul>
+          <p class="phone-note">{t.hero.phoneNote}</p>
+        </div>
       </div>
-      <p class="hero-note">{t.hero.note}</p>
-    </div>
-    <div class="hero-demo">
-      <p class="try-it">{t.hero.tryIt}</p>
       <Palette t={t} />
     </div>
   </section>
 
-  <section id="features" class="section wrap" aria-labelledby="features-title">
-    <div class="section-head">
-      <h2 id="features-title">{t.features.title}</h2>
-      <p>{t.features.lead}</p>
-    </div>
-    <ul class="features">
-      {
-        t.features.items.map((f) => {
-          const Icon = featureIcons[f.icon as FeatureIcon];
-          return (
-            <li>
-              <h3>
-                <span class="feature-icon">
-                  <Icon size={20} aria-hidden="true" />
-                </span>
-                {f.title}
-              </h3>
-              <p>{f.body}</p>
-            </li>
-          );
-        })
-      }
-    </ul>
-  </section>
-
-  <section id="shortcuts" class="section wrap split" aria-labelledby="shortcuts-title">
-    <div class="section-head">
-      <h2 id="shortcuts-title">{t.shortcuts.title}</h2>
-      <p>{t.shortcuts.lead}</p>
-    </div>
-    <table class="shortcuts">
-      <thead>
-        <tr><th scope="col">{t.shortcuts.keysHeader}</th><th scope="col">{t.shortcuts.actionHeader}</th></tr>
-      </thead>
-      <tbody>
+  <section id="features" class="section" aria-labelledby="features-title">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="features-title">{t.features.title}</h2>
+        <p>{t.features.lead}</p>
+      </div>
+      <div class="records">
         {
-          t.shortcuts.rows.map((r) => (
-            <tr>
-              <th scope="row">
-                <div class="key-list">
-                  {r.keys.length === 0 ? (
-                    <span class="type-hint">{t.shortcuts.typeLabel}</span>
-                  ) : (
-                    r.keys.map((k) => <Keys combo={k} />)
-                  )}
-                </div>
-              </th>
-              <td>{r.action}</td>
-            </tr>
+          t.features.items.map((f) => (
+            <article class={`record record-${f.fragment}`}>
+              <div class="record-top">
+                <h3>{f.title}</h3>
+                <span class="callno">{f.keys.map((k) => <Keys combo={k} />)}</span>
+              </div>
+              <p>{f.body}</p>
+              <div class="panel" inert>
+                {f.fragment === "detect" && (
+                  <div class="frag mica frag-palette">
+                    <div class="pal-head">
+                      <Search size={16} class="pal-icon" aria-hidden="true" />
+                      <span class="pal-input is-fake">{d.search}</span>
+                      <span class="pal-filters">
+                        {kindIcons.map((Icon, i) => (
+                          <span class:list={["ab ab-icon", { "is-on": i === 0 }]}>
+                            <Icon size={15} aria-hidden="true" />
+                          </span>
+                        ))}
+                      </span>
+                      <span class="pal-sep" />
+                      <span class="ab ab-icon">
+                        <Settings size={15} aria-hidden="true" />
+                      </span>
+                    </div>
+                    <ul class="pal-list">
+                      {kindsRows.map((clip, i) => <Row clip={clip} d={d} lang={lang} index={i} selected={i === 0} />)}
+                    </ul>
+                  </div>
+                )}
+                {f.fragment === "pins" && (
+                  <div class="frag mica frag-rows">
+                    <ul class="pal-list">
+                      {pinRows.map((clip, i) => <Row clip={clip} d={d} lang={lang} index={i} selected={i === 0} />)}
+                    </ul>
+                  </div>
+                )}
+                {f.fragment === "plain" && (
+                  <div class="frag mica frag-rows">
+                    <ul class="pal-list">
+                      <Row clip={d.items[9]} d={d} lang={lang} index={9} />
+                      <Row clip={rich} d={d} lang={lang} index={10} selected />
+                    </ul>
+                    <div class="pal-foot">
+                      <span class="ab ab-text">
+                        <ClipboardPaste size={15} aria-hidden="true" />
+                        <span class="ab-label">{d.actions.paste}</span>
+                      </span>
+                      <span class="ab ab-text is-hover">
+                        <Type size={15} aria-hidden="true" />
+                        {d.actions.plain}
+                      </span>
+                      <span class="ab ab-icon">
+                        <Pin size={15} aria-hidden="true" />
+                      </span>
+                      <span class="ab ab-icon">
+                        <Trash size={15} aria-hidden="true" />
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {f.fragment === "preview" && (
+                  <div class="frag mica frag-preview">
+                    <div class="pv-body">
+                      <pre class="pv-code">{code.text}</pre>
+                    </div>
+                    <footer class="pv-details">
+                      <dl>
+                        <dt>{d.preview.source}</dt><dd>{code.app}</dd>
+                        <dt>{d.preview.uses}</dt><dd>{code.uses}</dd>
+                        <dt>{d.preview.chars}</dt><dd>{code.text.length.toLocaleString(lang)}</dd>
+                        <dt>{d.preview.lines}</dt><dd>{code.text.split("\n").length.toLocaleString(lang)}</dd>
+                      </dl>
+                    </footer>
+                  </div>
+                )}
+              </div>
+            </article>
           ))
         }
-      </tbody>
-    </table>
-  </section>
-
-  <section id="privacy" class="privacy" aria-labelledby="privacy-title">
-    <div class="wrap privacy-inner">
-      <h2 id="privacy-title">{t.privacy.title}</h2>
-      <div>
-        <p>{t.privacy.body}</p>
-        <ul class="checks">
-          {
-            t.privacy.points.map((p) => (
-              <li>
-                <Check size={18} aria-hidden="true" />
-                {p}
-              </li>
-            ))
-          }
-        </ul>
       </div>
     </div>
   </section>
 
-  <section id="compare" class="section wrap split" aria-labelledby="compare-title">
-    <div class="section-head">
-      <h2 id="compare-title">{t.compare.title}</h2>
-      <p>{t.compare.lead}</p>
+  <section id="shortcuts" class="section" aria-labelledby="shortcuts-title">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="shortcuts-title">{t.shortcuts.title}</h2>
+        <p>{t.shortcuts.lead}</p>
+      </div>
+      <dl class="keylist">
+        {
+          t.shortcuts.rows.map((r) => (
+            <div class="keyrow">
+              <dt>{r.keys.length ? r.keys.map((k) => <Keys combo={k} />) : <span class="just-type">{t.shortcuts.typeLabel}</span>}</dt>
+              <dd>{r.action}</dd>
+            </div>
+          ))
+        }
+      </dl>
     </div>
-    <div class="table-scroll">
-      <table class="compare">
-        <caption class="sr-only">{t.compare.caption}</caption>
-        <thead>
-          <tr>
-            <th scope="col"><span class="sr-only">{t.compare.featureHeader}</span></th>
-            <th scope="col" class="is-wincy">Wincy</th>
-            <th scope="col"><Keys combo="Win+V" /></th>
-          </tr>
-        </thead>
-        <tbody>
+  </section>
+
+  <section id="privacy" class="section band" aria-labelledby="privacy-title">
+    <div class="wrap band-grid">
+      <div class="band-text">
+        <h2 id="privacy-title" class="statement">
+          {t.privacy.title.split(" ").map((w, i) => <><span class="w" style={`--i:${i}`}>{w}</span>{" "}</>)}
+        </h2>
+        <p class="band-lead">{t.privacy.body}</p>
+        <dl class="tracings">
+          {t.privacy.facts.map(([k, v]) => <div><dt>{k}</dt><dd>{v}</dd></div>)}
+        </dl>
+      </div>
+      <div class="panel panel-tall" inert>
+        <div class="frag mica frag-settings">
+          <div class="set-head">
+            <span class="ab ab-icon"><ArrowLeft size={16} aria-hidden="true" /></span>
+            <span class="set-title">{t.privacy.settings.title}</span>
+          </div>
+          <div class="set-body">
+            <p class="set-label">{t.privacy.settings.privacy}</p>
+            <div class="set-card">
+              <div class="set-row set-col">
+                <span>{t.privacy.settings.ignoredApps}</span>
+                <span class="set-hint">{t.privacy.settings.ignoredAppsHint}</span>
+                <ul class="app-chips">
+                  {ignored.map((app) => <li>{app}<X size={12} aria-hidden="true" /></li>)}
+                </ul>
+                <div class="set-add">
+                  <span class="field">{t.privacy.settings.appPlaceholder}</span>
+                  <span class="btn-app"><Plus size={14} aria-hidden="true" />{t.privacy.settings.add}</span>
+                </div>
+              </div>
+            </div>
+            <p class="set-label">{t.privacy.settings.updates}</p>
+            <div class="set-card">
+              <div class="set-row">
+                <span>{t.privacy.settings.checkUpdates}</span>
+                <span class="switch is-on" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="compare" class="section" aria-labelledby="compare-title">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="compare-title">{t.compare.title}</h2>
+        <p>{t.compare.lead}</p>
+      </div>
+      <div class="table-scroll">
+        {/* Explicit roles keep the table a table for screen readers when phones lay its rows out as grids. */}
+        <table class="compare" role="table">
+          <caption class="sr-only">{t.compare.caption}</caption>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader"><span class="sr-only">{t.compare.featureHeader}</span></th>
+              <th scope="col" role="columnheader" class="is-wincy"><span class="tab"><img src={logo} alt="" width="20" height="20" />Wincy</span></th>
+              <th scope="col" role="columnheader">{t.compare.windows}</th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            {
+              t.compare.rows.map(([label, wincy, winv]) => (
+                <tr role="row">
+                  <th scope="row" role="rowheader">{label}</th>
+                  <td role="cell" class="is-wincy">{wincy}</td>
+                  <td role="cell">{winv}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="install" class="section" aria-labelledby="install-title">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="install-title">{t.install.title}</h2>
+      </div>
+      <ol class="steps">
+        {
+          t.install.steps.map((s) => (
+            <li class="step">
+              <h3>{s.title}</h3>
+              <p>{s.body}</p>
+              <div class="step-visual">
+                {s.fragment === "download" && (
+                  <div class="step-download">
+                    <a class="btn btn-primary" href={DOWNLOAD_URL}>
+                      {t.install.link}
+                      <ArrowRight size={16} class="arrow" aria-hidden="true" />
+                    </a>
+                    <span class="file">
+                      <FileDown size={16} aria-hidden="true" />
+                      {INSTALLER}
+                    </span>
+                  </div>
+                )}
+                {s.fragment === "smartscreen" && (
+                  <div class="ss" inert>
+                    <p class="ss-title">{ss.title}</p>
+                    <p class="ss-meta">
+                      <span>{ss.app}</span> {INSTALLER}
+                      <br />
+                      <span>{ss.publisher}</span> {ss.unknown}
+                    </p>
+                    <p class="ss-buttons">
+                      <span class="ss-btn is-run">{ss.runAnyway}</span>
+                      <span class="ss-btn">{ss.dontRun}</span>
+                    </p>
+                  </div>
+                )}
+                {s.fragment === "startup" && (
+                  <div class="frag-card mica" inert>
+                    <div class="set-row">
+                      <span>{t.install.startup}</span>
+                      <span class="switch is-on" />
+                    </div>
+                  </div>
+                )}
+                {s.fragment === "tray" && (
+                  <div class="tray" inert>
+                    <ul class="tray-menu mica">
+                      <li>{t.install.tray[0]}<span>Alt+V</span></li>
+                      <li>{t.install.tray[1]}</li>
+                      <li>{t.install.tray[2]}</li>
+                      <li class="sep">{t.install.tray[3]}</li>
+                      <li class="sep">{t.install.tray[4]}</li>
+                    </ul>
+                    <div class="taskbar">
+                      <ChevronUp size={16} aria-hidden="true" />
+                      <img src={logo} alt="" width="18" height="18" class="tray-icon" />
+                      <Wifi size={16} aria-hidden="true" />
+                      <Volume2 size={16} aria-hidden="true" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+      <p class="note">
+        <Info size={18} aria-hidden="true" />
+        {t.install.note}
+      </p>
+    </div>
+  </section>
+
+  <section id="faq" class="section" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="faq-title">{t.faq.title}</h2>
+      </div>
+      <div class="faq">
+        {
+          t.faq.items.map((item) => (
+            <details class="qa" open>
+              <summary>
+                <h3>{item.q}</h3>
+                <ChevronDown size={18} class="qa-chevron" aria-hidden="true" />
+              </summary>
+              <p>{item.a}</p>
+            </details>
+          ))
+        }
+      </div>
+    </div>
+    <script>
+      // Every answer starts open; on a phone they fold to their questions so the list stays short.
+      if (matchMedia("(max-width: 899px)").matches) for (const d of document.querySelectorAll<HTMLDetailsElement>(".qa")) d.open = false;
+    </script>
+  </section>
+
+  <footer slot="footer" class="closing">
+    <div class="wrap">
+      <div class="close">
+        <div class="close-text">
+          <img class="close-logo" src={logo} alt="" width="56" height="56" loading="lazy" />
+          <h2 id="cta-title">{t.cta.title}</h2>
+          <p class="close-lead">{t.cta.body}</p>
+          <div class="actions">
+            <a class="btn btn-primary" href={DOWNLOAD_URL}>
+              <Download size={18} aria-hidden="true" />
+              {t.hero.download}
+            </a>
+          </div>
+          <ul class="facts">{facts.map((f) => <li>{f}</li>)}</ul>
+          <p class="ss-hint">
+            {t.cta.smartscreen}
+            <span class="ss-chip">{ss.moreInfo}</span>
+            <ArrowRight size={14} aria-hidden="true" />
+            <span class="ss-chip is-run">{ss.runAnyway}</span>
+          </p>
+        </div>
+        <div class="close-keys" aria-hidden="true">
+          <kbd class="bigkey">Alt</kbd>
+          <kbd class="bigkey is-accent">V</kbd>
+        </div>
+      </div>
+      <div class="foot">
+        <p class="foot-license">
+          <img src={logo} alt={t.meta.logoAlt} width="24" height="24" loading="lazy" />
+          {t.footer.license}
+        </p>
+        <ul class="foot-links">
+          <li><a href={REPO_URL}>{t.footer.source}</a></li>
+          <li><a href={DOWNLOAD_URL}>{t.footer.releases}</a></li>
+          <li><a href={`${REPO_URL}/issues`}>{t.footer.issues}</a></li>
+          <li><a href={SUPPORT_URL}>{t.footer.support}</a></li>
+          <li><a href={`${REPO_URL}/blob/main/LICENSE`}>MIT</a></li>
+        </ul>
+        <nav class="foot-lang" aria-label={t.nav.language}>
           {
-            t.compare.rows.map(([label, wincy, winv]) => (
-              <tr>
-                <th scope="row">{label}</th>
-                <td class="is-wincy">{wincy}</td>
-                <td>{winv}</td>
-              </tr>
+            langs.map((l) => (
+              <a href={getRelativeLocaleUrl(l)} hreflang={l} lang={l} aria-current={l === lang ? "page" : undefined}>
+                {dictionaries[l].languageName}
+              </a>
             ))
           }
-        </tbody>
-      </table>
+        </nav>
+      </div>
     </div>
-  </section>
-
-  <section id="install" class="section wrap" aria-labelledby="install-title">
-    <div class="section-head">
-      <h2 id="install-title">{t.install.title}</h2>
-    </div>
-    <ol class="steps">
-      {
-        t.install.steps.map((s) => (
-          <li>
-            <h3>{s.title}</h3>
-            <p>{s.body}</p>
-            {"link" in s && (
-              <a class="text-link" href={DOWNLOAD_URL}>
-                {s.link}
-                <ArrowRight size={16} aria-hidden="true" />
-              </a>
-            )}
-            {"moreInfo" in s && (
-              <p class="smartscreen">
-                <span class="ui-chip">{s.moreInfo}</span>
-                <ArrowRight size={16} aria-hidden="true" />
-                <span class="ui-chip is-primary">{s.runAnyway}</span>
-              </p>
-            )}
-          </li>
-        ))
-      }
-    </ol>
-    <p class="install-note">
-      <Info size={18} aria-hidden="true" />
-      {t.install.note}
-    </p>
-  </section>
-
-  <section id="faq" class="section wrap split" aria-labelledby="faq-title">
-    <div class="section-head">
-      <h2 id="faq-title">{t.faq.title}</h2>
-    </div>
-    <div class="faq">
-      {
-        t.faq.items.map((item) => (
-          <details>
-            <summary>
-              {item.q}
-              <ChevronDown size={20} aria-hidden="true" />
-            </summary>
-            <p>{item.a}</p>
-          </details>
-        ))
-      }
-    </div>
-  </section>
-
-  <section class="cta wrap" aria-labelledby="cta-title">
-    <img src={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/logo.svg`} alt="" width="72" height="72" loading="lazy" />
-    <h2 id="cta-title">{t.hero.title}</h2>
-    <div class="hero-actions">
-      <a class="btn btn-primary" href={DOWNLOAD_URL}>
-        <Download size={20} aria-hidden="true" />
-        {t.hero.download}
-      </a>
-    </div>
-    <p class="hero-note">{t.hero.note}</p>
-  </section>
+  </footer>
 </Base>
