@@ -9,7 +9,8 @@ use tauri_plugin_opener::OpenerExt;
 
 use crate::db::{self, Clip, ClipSummary};
 use crate::settings::{self, Settings};
-use crate::{AppState, paste, tray, window};
+use crate::status::Status;
+use crate::{AppState, LOG_FILE, clipboard, ocr, paste, tray, window};
 
 type Res<T> = Result<T, String>;
 
@@ -84,6 +85,33 @@ pub fn clear(app: &AppHandle) -> Res<()> {
     Ok(())
 }
 
+/// Deletes unpinned clips older than `expireDays` (none when it is 0).
+pub fn expire(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let days = state.settings.lock().unwrap().expire_days;
+    if days == 0 {
+        return;
+    }
+    let cutoff = db::now_ms() - i64::from(days) * 86_400_000;
+    let expired = {
+        let conn = state.db.lock().unwrap();
+        let expired = db::expire(&conn, cutoff);
+        if matches!(expired, Ok((n, _)) if n > 0) {
+            db::checkpoint(&conn);
+        }
+        expired
+    };
+    match expired {
+        Ok((0, _)) => {}
+        Ok((count, images)) => {
+            db::remove_images(&state.images_dir, &images);
+            log::info!("expired {count} clips");
+            changed(app);
+        }
+        Err(e) => log::warn!("expire: {e}"),
+    }
+}
+
 #[tauri::command]
 pub async fn clear_history(app: AppHandle) -> Res<()> {
     clear(&app)
@@ -139,4 +167,67 @@ pub async fn open_data_dir(app: AppHandle) -> Res<()> {
     app.opener()
         .open_path(dir.to_string_lossy(), None::<&str>)
         .map_err(err)
+}
+
+#[tauri::command]
+pub async fn open_log_dir(app: AppHandle) -> Res<()> {
+    let dir = app.path().app_log_dir().map_err(err)?;
+    std::fs::create_dir_all(&dir).map_err(err)?;
+    app.opener()
+        .open_path(dir.to_string_lossy(), None::<&str>)
+        .map_err(err)
+}
+
+#[tauri::command]
+pub async fn get_status(app: AppHandle) -> Res<Status> {
+    Ok(app.state::<AppState>().status.lock().unwrap().clone())
+}
+
+/// A bug-report summary, also put on the clipboard. Never includes clip contents.
+#[tauri::command]
+pub async fn copy_diagnostics(app: AppHandle) -> Res<String> {
+    let state = app.state::<AppState>();
+    let settings = state.settings.lock().unwrap().clone();
+    let mut settings_json = serde_json::to_value(&settings).map_err(err)?;
+    settings_json["ignoredApps"] = settings.ignored_apps.len().into();
+    let clips = {
+        let conn = state.db.lock().unwrap();
+        db::count(&conn).map_err(err)?
+    };
+    let status = state.status.lock().unwrap().clone();
+    log::logger().flush();
+    let log = std::fs::read(std::path::Path::new(&status.log_dir).join(format!("{LOG_FILE}.log")))
+        .map(|b| String::from_utf8_lossy(&b).into_owned())
+        .unwrap_or_default();
+    let lines: Vec<&str> = log.lines().collect();
+    let tail = lines[lines.len().saturating_sub(200)..].join("\n");
+    let text = format!(
+        "Wincy {}\nWindows {}\nOCR: {}\nClips: {clips}\nShortcut error: {}\n\
+         Settings: {settings_json:#}\n\nLast log lines:\n{tail}\n",
+        app.package_info().version,
+        windows_version(),
+        ocr::availability(),
+        status.shortcut_error.as_deref().unwrap_or("none"),
+    );
+    clipboard::write_text(&text)?;
+    Ok(text)
+}
+
+fn windows_version() -> String {
+    windows::System::Profile::AnalyticsInfo::VersionInfo()
+        .and_then(|v| v.DeviceFamilyVersion())
+        .ok()
+        .and_then(|v| v.to_string().parse::<u64>().ok())
+        .map_or_else(
+            || "unknown".into(),
+            |v| {
+                format!(
+                    "{}.{}.{}.{}",
+                    v >> 48,
+                    (v >> 32) & 0xffff,
+                    (v >> 16) & 0xffff,
+                    v & 0xffff
+                )
+            },
+        )
 }

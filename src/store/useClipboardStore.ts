@@ -2,7 +2,8 @@ import Fuse from "fuse.js";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { create } from "zustand";
 import { api, errorMessage } from "../api";
-import type { ClipKind, ClipSummary, Settings, View } from "../types";
+import { matchesApp, parseQuery } from "../lib/query";
+import type { ClipKind, ClipSummary, Settings, Status, View } from "../types";
 
 export type KindFilter = "all" | ClipKind;
 export const KIND_FILTERS: KindFilter[] = ["all", "text", "url", "color", "code", "image", "files"];
@@ -15,6 +16,7 @@ interface State {
   showPreview: boolean;
   view: View;
   settings: Settings | null;
+  status: Status | null;
   paused: boolean;
   /** Set by the startup update check; SettingsView installs it. */
   update: Update | null;
@@ -38,6 +40,8 @@ interface State {
   deleteSelected: () => Promise<void>;
   loadSettings: () => Promise<void>;
   setSettings: (settings: Settings) => void;
+  loadStatus: () => Promise<void>;
+  setStatus: (status: Status) => void;
   /** Saves immediately; resolves to the backend error message, or null on success. */
   saveSettings: (patch: Partial<Settings>) => Promise<string | null>;
   setPaused: (paused: boolean) => Promise<void>;
@@ -55,7 +59,7 @@ function fuseFor(clips: ClipSummary[]): Fuse<ClipSummary> {
     fuseCache = {
       clips,
       fuse: new Fuse(clips, {
-        keys: ["preview", "sourceApp", "kind"],
+        keys: ["preview", "ocrText", "sourceApp", "kind"],
         threshold: 0.35,
         // Matches can sit anywhere in the 500-char preview, not only near the start.
         ignoreLocation: true,
@@ -70,8 +74,9 @@ export function selectFiltered(s: Pick<State, "clips" | "query" | "kindFilter">)
   const query = s.query.trim();
   const c = filterCache;
   if (c && c.clips === s.clips && c.query === query && c.kind === s.kindFilter) return c.result;
-  const base = query ? fuseFor(s.clips).search(query).map((r) => r.item) : s.clips;
-  const result = s.kindFilter === "all" ? base : base.filter((clip) => clip.kind === s.kindFilter);
+  const { apps, text } = parseQuery(query);
+  const base = text ? fuseFor(s.clips).search(text).map((r) => r.item) : s.clips;
+  const result = base.filter((clip) => (s.kindFilter === "all" || clip.kind === s.kindFilter) && matchesApp(clip.sourceApp, apps));
   filterCache = { clips: s.clips, query, kind: s.kindFilter, result };
   return result;
 }
@@ -95,6 +100,7 @@ export const useClipboardStore = create<State>()((set, get) => {
     showPreview: true,
     view: "palette",
     settings: null,
+    status: null,
     paused: false,
     update: null,
     installing: false,
@@ -181,6 +187,16 @@ export const useClipboardStore = create<State>()((set, get) => {
     },
 
     setSettings: (settings) => set({ settings }),
+
+    loadStatus: async () => {
+      try {
+        set({ status: await api.getStatus() });
+      } catch (e) {
+        fail(e);
+      }
+    },
+
+    setStatus: (status) => set({ status }),
 
     saveSettings: async (patch) => {
       const current = get().settings;

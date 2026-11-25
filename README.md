@@ -20,22 +20,22 @@
   English · <a href="README.es.md">Español</a>
 </p>
 
-<!-- TODO: add docs/screenshot.png (palette open over an app, ~1440px wide) and uncomment:
-<p align="center"><img src="docs/screenshot.png" width="720" alt="Wincy palette next to the cursor"></p>
--->
+<p align="center"><img src="docs/screenshots/palette-code.png" width="720" alt="Wincy palette with the code preview panel"></p>
 
 ## Features
 
 - **Opens where you are:** a command palette appears next to the mouse cursor, not in a corner of the screen.
 - **Everything you copy:** text, rich text (HTML), images, file lists, URLs, colors and code, each detected and labeled automatically.
-- **Fuzzy search** across contents and source apps, plus quick kind filters (<kbd>Tab</kbd>).
+- **Fuzzy search** across contents and source apps, plus quick kind filters (<kbd>Tab</kbd>) and an `app:` filter (`app:chrome`).
+- **Search inside images:** text in screenshots and other copied images is read with the OCR built into Windows, on your PC, so searching finds them too.
 - **Paste anywhere:** <kbd>Enter</kbd> pastes straight into the app you were using; <kbd>Shift</kbd>+<kbd>Enter</kbd> pastes as plain text.
 - **Quick paste:** <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> pastes the Nth visible item.
 - **Pins** keep snippets forever; they are never trimmed from history.
 - **Floating preview panel** beside the palette (right or left, wherever it fits) that shows the hovered or selected clip in full: long text, code, images, colors and file lists, with scrolling.
 - **Mouse-friendly:** drag the palette by its search bar, and every shortcut has a button: paste, plain text, pin, delete, pause capture, preview and settings.
-- **Private by design:** local only, skips password managers and content marked as sensitive, pause capture from the tray.
+- **Private by design:** local only, skips password managers, content marked as sensitive and text that looks like a secret (private keys, API tokens, card numbers); pause capture from the tray, and optionally let old clips expire after a number of days.
 - **Light on resources:** event-driven capture (no polling), native Windows vibrancy (Mica / Acrylic), small Tauri binary.
+- **Your look:** system, light or dark theme and an accent color (the Windows accent by default, or one of seven others).
 - **Automatic, signed updates** and an English / Spanish interface.
 
 ## Install
@@ -59,7 +59,7 @@ Copy things as usual. When you need something again, press <kbd>Alt</kbd>+<kbd>V
 | Keys | Action |
 |---|---|
 | <kbd>Alt</kbd>+<kbd>V</kbd> | Open the palette (global, configurable) |
-| *type* | Fuzzy filter by content, source app or kind |
+| *type* | Fuzzy filter by content (including text found in images), source app or kind; `app:name` keeps only clips from that app |
 | <kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>PgUp</kbd> / <kbd>PgDn</kbd>, <kbd>Home</kbd> / <kbd>End</kbd> (<kbd>Ctrl</kbd>+<kbd>Home</kbd> / <kbd>End</kbd>) | Move the selection |
 | <kbd>Enter</kbd> | Paste |
 | <kbd>Shift</kbd>+<kbd>Enter</kbd> | Paste as plain text |
@@ -75,6 +75,20 @@ The tray icon menu lets you open the palette or settings, pause capture, clear h
 
 If **Paste into the active app** is turned off in Settings, Wincy only copies the item to the clipboard and you paste it yourself.
 
+If another program already uses your shortcut, Wincy can't register it: it opens Settings with a warning when it starts (the tray tooltip also says the shortcut is unavailable), so you can record a different one.
+
+### Search
+
+Type a few letters of anything in the clip: its text, the text Wincy found in an image, the source app or the kind. Add `app:<name>` to keep only clips copied from apps whose name contains `<name>` (case-insensitive, without `.exe`); repeat it to allow several apps.
+
+| Query | Finds |
+|---|---|
+| `invoice` | clips containing something like "invoice", including screenshots of one |
+| `app:code debounce` | "debounce" in clips copied from VS Code (`Code.exe`) |
+| `app:chrome app:edge` | everything copied from Chrome or Edge |
+
+Text in images is recognized in the background with the Windows OCR engine, in one of your Windows display languages; nothing is uploaded. If no OCR language is installed, images are still saved, just not searchable by their text. To turn it off, use Settings → **Recognize text in images**.
+
 ## Privacy
 
 Your clipboard history never leaves your computer: no accounts, no cloud, no telemetry. The only network request Wincy makes is the update check against GitHub Releases, which you can disable.
@@ -83,9 +97,10 @@ Wincy does **not** capture:
 
 - content that the source app marks as private with the standard Windows clipboard formats `ExcludeClipboardContentFromMonitorProcessing`, `Clipboard Viewer Ignore` or `CanIncludeInClipboardHistory = 0` (Bitwarden, 1Password, KeePassXC and browsers in private mode do this);
 - anything copied from an app in the **ignored apps** list. By default: Bitwarden, 1Password, KeePass, KeePassXC, Enpass, Dashlane, LastPass, NordPass and Proton Pass. Add your own in Settings by exe name (e.g. `myvault.exe`);
+- text that **looks like a secret** (on by default; Settings → **Ignore secrets**): a PEM private key, a JSON Web Token, AWS access key IDs, GitHub, Slack, Stripe live, Google API, OpenAI and Anthropic keys, or a payment card number (checked with the Luhn algorithm). The check only matches these exact formats, so ordinary text is never thrown away by accident; it is not a guarantee that every secret is caught;
 - anything at all while capture is **paused** from the tray menu.
 
-Pinned items are kept until you delete them. Everything else is trimmed to the history size you choose (1000 items by default).
+Pinned items are kept until you delete them. Everything else is trimmed to the history size you choose (1000 items by default) and, if you choose a period in Settings → **Delete old clips**, deleted once it hasn't been copied or pasted for that many days (1 to 365; off by default).
 
 ### Where your data lives
 
@@ -94,8 +109,15 @@ Pinned items are kept until you delete them. Everything else is trimmed to the h
 | History database | `%APPDATA%\dev.wincy.app\wincy.db` (SQLite) |
 | Copied images and thumbnails | `%APPDATA%\dev.wincy.app\images\` |
 | Settings | `%APPDATA%\dev.wincy.app\settings.json` (the app config folder) |
+| Logs | `%LOCALAPPDATA%\dev.wincy.app\logs\` (rotated at about 1 MB; never contain clip contents) |
 
-**Settings → Open data folder** opens it in Explorer. **Clear history** deletes everything except pinned items.
+**Settings → Open data folder** opens it in Explorer. **Clear history** deletes everything except pinned items. Text recognized in images is stored with the clip in the same database.
+
+## Reporting a bug
+
+Wincy writes a log file (see the table above; Settings → **Open log folder** opens it). Logs record what happened, such as a skipped capture or a failed shortcut, but never what you copied: no clip contents, no recognized text.
+
+When you [open a bug report](https://github.com/devnielo/wincy/issues/new?template=bug_report.yml), click **Settings → Copy diagnostics** and paste the result into it. It contains the Wincy version, Windows version and build, your settings (the ignored apps only as a count), the number of clips, whether OCR is available and the last ~200 log lines. Read it before you post it.
 
 ## Uninstall
 
@@ -130,7 +152,9 @@ pnpm tauri build    # installer in src-tauri/target/release/bundle/nsis/
 ├── assets/logo.svg      master logo (app icons are generated from it)
 ├── docs/
 │   ├── ARCHITECTURE.md  contract between backend and frontend: commands, events, types
-│   └── RELEASING.md     how releases and auto-updates are produced
+│   ├── RELEASING.md     how releases and auto-updates are produced
+│   └── SIGNING.md       Authenticode signing through SignPath Foundation
+├── packaging/winget/    winget manifest templates
 └── .github/             CI, release and Pages workflows, issue templates
 ```
 

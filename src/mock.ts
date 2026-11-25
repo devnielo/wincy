@@ -1,23 +1,29 @@
 // In-memory stand-in for the Rust backend so `pnpm dev` works in a normal browser.
 import type { EventMap } from "./api";
-import type { Clip, ClipKind, Settings } from "./types";
+import type { Clip, ClipKind, Settings, Status } from "./types";
 
 const MIN = 60_000;
 const now = Date.now();
 
-function svgImage(from: string, to: string, w: number, h: number): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/></svg>`;
+/** A gradient; with `lines`, a fake screenshot of a note showing them (its OCR text). */
+function svgImage(from: string, to: string, w: number, h: number, lines: string[] = []): string {
+  const note = lines.length
+    ? `<rect x="8%" y="12%" width="84%" height="76%" rx="${w / 60}" fill="#fff"/>` +
+      lines.map((l, i) => `<text x="13%" y="${26 + i * 15}%" font-family="Segoe UI, sans-serif" font-size="${h / 14}" font-weight="${i ? 400 : 600}" fill="#1f2937">${l}</text>`).join("")
+    : "";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/>${note}</svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-type Seed = [kind: ClipKind, content: string | string[] | [string, string, number, number], app: string, minutesAgo: number];
+type ImageSeed = [from: string, to: string, w: number, h: number, ocrLines?: string[]];
+type Seed = [kind: ClipKind, content: string | string[] | ImageSeed, app: string, minutesAgo: number];
 
 const seeds: Seed[] = [
   ["text", "Meeting moved to Thursday 3pm — same room.", "teams.exe", 1],
   ["url", "https://github.com/devnielo/wincy", "chrome.exe", 2],
   ["color", "#1E90FF", "figma.exe", 4],
   ["code", "export function debounce<T extends (...a: never[]) => void>(fn: T, ms: number) {\n  let t: number | undefined;\n  return (...args: Parameters<T>) => {\n    clearTimeout(t);\n    t = window.setTimeout(() => fn(...args), ms);\n  };\n}", "code.exe", 6],
-  ["image", ["#7c3aed", "#06b6d4", 1920, 1080], "snippingtool.exe", 9],
+  ["image", ["#7c3aed", "#06b6d4", 1920, 1080, ["Sprint review: action items", "1. Ship OCR search in v0.2.0", "2. Check accent contrast (AA)", "3. Update the website copy"]], "snippingtool.exe", 9],
   ["files", ["C:\\Users\\me\\Documents\\Q3 report.xlsx", "C:\\Users\\me\\Documents\\notes.md", "C:\\Users\\me\\Pictures\\diagram.png"], "explorer.exe", 12],
   ["text", "Hola Marta, te paso el enlace del documento en cuanto lo tenga listo.", "outlook.exe", 15],
   ["color", "rgb(255, 99, 71)", "chrome.exe", 18],
@@ -62,10 +68,19 @@ let clips: Clip[] = seeds.map(([kind, content, app, ago], i) => {
     updatedAt: t,
     useCount: (i * 7) % 5,
     html: null,
+    ocrText: null,
   } satisfies Partial<Clip>;
   if (kind === "image") {
-    const [from, to, w, h] = content as [string, string, number, number];
-    return { ...base, preview: "", text: null, thumbPath: svgImage(from, to, 64, 64), imagePath: svgImage(from, to, w, h), imageSize: [w, h] };
+    const [from, to, w, h, lines] = content as ImageSeed;
+    return {
+      ...base,
+      preview: "",
+      text: null,
+      thumbPath: svgImage(from, to, 64, 64),
+      imagePath: svgImage(from, to, w, h, lines),
+      imageSize: [w, h],
+      ocrText: lines ? lines.join("\n") : "",
+    };
   }
   if (kind === "files") {
     const files = content as string[];
@@ -85,8 +100,24 @@ let settings: Settings = {
   theme: "system",
   language: "system",
   checkUpdates: true,
+  accent: "windows",
+  ignoreSecrets: true,
+  expireDays: 0,
+  ocrImages: true,
 };
 let paused = false;
+
+// `?shortcut-error` in the dev URL starts as if Alt+V were taken by another app.
+let status: Status = {
+  shortcutError: new URLSearchParams(location.search).has("shortcut-error") ? "HotKey already registered" : null,
+  systemAccent: "#C239B3",
+  logDir: "C:\\Users\\me\\AppData\\Local\\dev.wincy.app\\logs",
+};
+
+function setStatus(patch: Partial<Status>) {
+  status = { ...status, ...patch };
+  emit("status-changed", { ...status });
+}
 
 const listeners = new Map<string, Set<(payload: never) => void>>();
 
@@ -148,7 +179,11 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
         return { ...settings };
       case "save_settings": {
         const next = args.settings as Settings;
-        if (/(^|\+)Super\+L$/.test(next.shortcut)) throw `Shortcut "${next.shortcut}" is reserved by Windows`;
+        if (/(^|\+)Super\+L$/.test(next.shortcut)) {
+          setStatus({ shortcutError: "HotKey already registered" });
+          throw `Shortcut "${next.shortcut}" is reserved by Windows`;
+        }
+        if (status.shortcutError) setStatus({ shortcutError: null });
         settings = { ...next, ignoredApps: [...next.ignoredApps] };
         emit("settings-changed", { ...settings });
         return { ...settings };
@@ -162,8 +197,13 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
       case "set_preview":
         emit("preview-clip", { id: (args.id as number | null) ?? null });
         return null;
+      case "get_status":
+        return { ...status };
+      case "copy_diagnostics":
+        return `Wincy dev (browser mock)\nclips: ${clips.length}`;
       case "hide_window":
       case "open_data_dir":
+      case "open_log_dir":
         console.info(`[mock] ${cmd}`);
         return null;
       default:

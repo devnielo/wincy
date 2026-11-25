@@ -1,9 +1,10 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { error as logToFile } from "@tauri-apps/plugin-log";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import type { Clip, ClipSummary, PaletteShownPayload, Settings } from "./types";
+import type { Clip, ClipSummary, PaletteShownPayload, Settings, Status } from "./types";
 
 /** False in a plain browser (`pnpm dev`): every call is then served by ./mock. */
 export const isTauri = "__TAURI_INTERNALS__" in window;
@@ -11,8 +12,20 @@ export const isTauri = "__TAURI_INTERNALS__" in window;
 // Loaded lazily so the sample data never ships in the desktop bundle's main chunk.
 const mock = isTauri ? null : import("./mock");
 
+/** Writes to the app log file (console in the browser). Callers must never pass clip contents. */
+export function logError(message: string): void {
+  if (isTauri) void logToFile(message).catch(() => undefined);
+  else console.error(message);
+}
+
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  return mock ? (await mock).mockInvoke<T>(cmd, args) : invoke<T>(cmd, args);
+  try {
+    return await (mock ? (await mock).mockInvoke<T>(cmd, args) : invoke<T>(cmd, args));
+  } catch (e) {
+    // Backend errors are short status strings (never clip contents), so they are safe to log.
+    logError(`invoke ${cmd} failed: ${errorMessage(e)}`);
+    throw e;
+  }
 }
 
 export const api = {
@@ -29,6 +42,9 @@ export const api = {
   setPaused: (paused: boolean) => call<boolean>("set_paused", { paused }),
   openDataDir: () => call<void>("open_data_dir"),
   setPreview: (id: number | null) => call<void>("set_preview", { id }),
+  getStatus: () => call<Status>("get_status"),
+  copyDiagnostics: () => call<string>("copy_diagnostics"),
+  openLogDir: () => call<void>("open_log_dir"),
 };
 
 export interface EventMap {
@@ -37,6 +53,7 @@ export interface EventMap {
   "settings-changed": Settings;
   // The backend only sends ids; null comes from the browser mock, which has no window to hide.
   "preview-clip": { id: number | null };
+  "status-changed": Status;
 }
 
 /** Subscribes to a backend event; resolves to the unsubscribe function. */
@@ -64,7 +81,15 @@ export async function openExternal(url: string): Promise<void> {
 export const appVersion = (): Promise<string> => (isTauri ? getVersion() : Promise.resolve("dev"));
 
 /** Null when up to date, and always in the browser mock (there is no updater there). */
-export const checkForUpdate = (): Promise<Update | null> => (isTauri ? check() : Promise.resolve(null));
+export async function checkForUpdate(): Promise<Update | null> {
+  if (!isTauri) return null;
+  try {
+    return await check();
+  } catch (e) {
+    logError(`update check failed: ${errorMessage(e)}`);
+    throw e;
+  }
+}
 
 /** Commands reject with a plain string (see contract); anything else is unexpected. */
 export function errorMessage(e: unknown): string {

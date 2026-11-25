@@ -101,3 +101,27 @@ export function toRgbString({ r, g, b, a }: Rgba): string {
   const rgb = [r, g, b].map((n) => Math.round(n)).join(", ");
   return a < 1 ? `rgba(${rgb}, ${+a.toFixed(3)})` : `rgb(${rgb})`;
 }
+
+/** WCAG 2.x relative luminance (alpha ignored). */
+function luminance({ r, g, b }: Rgba): number {
+  const [R, G, B] = [r, g, b].map((n) => {
+    const c = n / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+}
+
+export function contrastRatio(a: Rgba, b: Rgba): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+const WHITE: Rgba = { r: 255, g: 255, b: 255, a: 1 };
+
+/**
+ * Text color for `bg` with WCAG AA contrast (≥ 4.5:1): white when it passes, as Windows does on mid
+ * tones like #0078D4, else black (which then always passes).
+ */
+export function readableOn(bg: Rgba): "#000000" | "#FFFFFF" {
+  return contrastRatio(bg, WHITE) >= 4.5 ? "#FFFFFF" : "#000000";
+}

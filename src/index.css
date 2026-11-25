@@ -38,7 +38,9 @@ body {
 }
 
 .wincy-surface {
-  background: var(--wincy-surface);
+  /* A faint wash of the accent over the translucent surface. */
+  --wincy-tint: color-mix(in oklab, var(--accent) 5%, transparent);
+  background: linear-gradient(var(--wincy-tint), var(--wincy-tint)), var(--wincy-surface);
   border: 1px solid var(--wincy-stroke);
   border-radius: 8px;
 }

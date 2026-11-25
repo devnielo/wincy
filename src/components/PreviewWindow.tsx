@@ -2,13 +2,14 @@ import { Chip } from "@heroui/react";
 import { FileX } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api, errorMessage, fileSrc, onEvent } from "../api";
-import { useTheme } from "../App";
+import { useAppearance } from "../hooks/useAppearance";
 import { formatDate, useI18n } from "../i18n";
 import { parseColor, toHex, toHslString, toRgbString } from "../lib/color";
 import { useClipboardStore } from "../store/useClipboardStore";
 import type { Clip } from "../types";
 
 function Body({ clip }: { clip: Clip }) {
+  const { t } = useI18n();
   const text = clip.text ?? clip.preview;
   switch (clip.kind) {
     case "color": {
@@ -30,7 +31,18 @@ function Body({ clip }: { clip: Clip }) {
     }
     case "image":
       if (!clip.imagePath) break;
-      return <img src={fileSrc(clip.imagePath)} alt="" draggable={false} className="size-full rounded-md object-contain" />;
+      if (!clip.ocrText) return <img src={fileSrc(clip.imagePath)} alt="" draggable={false} className="size-full rounded-md object-contain" />;
+      return (
+        <div className="flex flex-col gap-4">
+          <img src={fileSrc(clip.imagePath)} alt="" draggable={false} className="max-h-56 w-full rounded-md object-contain" />
+          <section aria-labelledby="ocr-heading" className="flex flex-col gap-1.5">
+            <h2 id="ocr-heading" className="text-xs font-semibold tracking-wide text-muted uppercase">
+              {t("preview.ocr")}
+            </h2>
+            <p className="text-[14px] leading-relaxed break-words whitespace-pre-wrap select-text">{clip.ocrText}</p>
+          </section>
+        </div>
+      );
     case "files":
       return (
         <ul className="flex flex-col gap-1.5 text-[13px] select-text">
@@ -106,7 +118,7 @@ function Details({ clip }: { clip: Clip }) {
  */
 export function PreviewWindow() {
   const { t, locale } = useI18n();
-  useTheme(useClipboardStore((s) => s.settings?.theme ?? "system"));
+  useAppearance();
   const [id, setId] = useState<number | null>(null);
   const [version, setVersion] = useState(0);
   const [clip, setClip] = useState<Clip | null>(null);
@@ -114,11 +126,13 @@ export function PreviewWindow() {
 
   useEffect(() => {
     void useClipboardStore.getState().loadSettings();
+    void useClipboardStore.getState().loadStatus();
     const subscriptions = [
       onEvent("preview-clip", (p) => setId(p.id)),
       // Re-copy, paste, pin and delete all change the shown clip; refetch it.
       onEvent("clips-changed", () => setVersion((v) => v + 1)),
       onEvent("settings-changed", (s) => useClipboardStore.getState().setSettings(s)),
+      onEvent("status-changed", (s) => useClipboardStore.getState().setStatus(s)),
     ];
     return () => subscriptions.forEach((p) => void p.then((unlisten) => unlisten()));
   }, []);

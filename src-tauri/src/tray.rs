@@ -18,6 +18,7 @@ struct Labels {
     settings: &'static str,
     clear: &'static str,
     quit: &'static str,
+    shortcut_unavailable: &'static str,
 }
 
 const EN: Labels = Labels {
@@ -26,6 +27,7 @@ const EN: Labels = Labels {
     settings: "Settings…",
     clear: "Clear history",
     quit: "Quit",
+    shortcut_unavailable: "Wincy — shortcut unavailable",
 };
 
 const ES: Labels = Labels {
@@ -34,6 +36,7 @@ const ES: Labels = Labels {
     settings: "Configuración…",
     clear: "Borrar historial",
     quit: "Salir",
+    shortcut_unavailable: "Wincy — atajo no disponible",
 };
 
 fn labels(language: Language) -> &'static Labels {
@@ -70,9 +73,19 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     )
 }
 
+fn tooltip(app: &AppHandle) -> &'static str {
+    let state = app.state::<AppState>();
+    let language = state.settings.lock().unwrap().language;
+    if state.status.lock().unwrap().shortcut_error.is_some() {
+        labels(language).shortcut_unavailable
+    } else {
+        "Wincy"
+    }
+}
+
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
-        .tooltip("Wincy")
+        .tooltip(tooltip(app))
         .menu(&menu(app)?)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
@@ -84,7 +97,7 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
             "settings" => window::show(app, "settings"),
             "clear" => {
                 if let Err(e) = commands::clear(app) {
-                    eprintln!("clear history failed: {e}");
+                    log::warn!("clear history failed: {e}");
                 }
             }
             "quit" => app.exit(0),
@@ -107,9 +120,13 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Rebuilds the menu so labels, shortcut and pause state reflect the current settings.
+/// Rebuilds the menu and tooltip so they reflect the current settings, pause and shortcut state.
 pub fn refresh(app: &AppHandle) {
-    if let (Some(tray), Ok(menu)) = (app.tray_by_id(TRAY_ID), menu(app)) {
+    let Some(tray) = app.tray_by_id(TRAY_ID) else {
+        return;
+    };
+    if let Ok(menu) = menu(app) {
         let _ = tray.set_menu(Some(menu));
     }
+    let _ = tray.set_tooltip(Some(tooltip(app)));
 }

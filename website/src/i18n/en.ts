@@ -139,7 +139,7 @@ const en = {
         fragment: "detect",
         keys: ["Tab"],
         title: "Knows what you copied",
-        body: "Links, colors, code, images and files are recognized and shown as they should look. Tab filters by type.",
+        body: "Links, colors, code, images and files are recognized and shown as they should look, and the text in your screenshots is searchable too. Tab filters by type.",
       },
       {
         fragment: "pins",
@@ -167,7 +167,7 @@ const en = {
     typeLabel: "Just type",
     rows: [
       { keys: ["Alt+V"], action: "Open Wincy from any app (you can change it)" },
-      { keys: [], action: "Filter the list with fuzzy search" },
+      { keys: [], action: "Filter the list with fuzzy search; add app:chrome to see only what came from Chrome" },
       { keys: ["↑", "↓", "PageUp", "PageDown", "Home", "End"], action: "Move the selection" },
       { keys: ["Enter"], action: "Paste" },
       { keys: ["Shift+Enter"], action: "Paste as plain text" },
@@ -187,8 +187,8 @@ const en = {
       ["Telemetry", "None, and no analytics"],
       ["Account", "None, and no cloud sync"],
       ["Network", "Only the update check, which you can turn off"],
-      ["Password managers", "Ignored, like anything an app marks as sensitive"],
-      ["Capture", "Pause it with one click, any time"],
+      ["Passwords and keys", "Skipped: password managers, anything marked sensitive, and text that looks like an API key or card number"],
+      ["Capture", "Pause it with one click, and let old clips expire after a few days if you like"],
       ["Source code", "Open, under the MIT License"],
     ],
     settings: {
@@ -214,6 +214,7 @@ const en = {
       ["History size", "1,000 clips by default, up to 10,000", "25 items"],
       ["After a restart", "Everything is still there", "Cleared, except pinned items"],
       ["Fuzzy search", "Yes, as you type", "No"],
+      ["Text in images", "Searchable, with the OCR built into Windows", "No"],
       ["Quick paste", "Alt+1 … Alt+9", "No"],
       ["Type filters", "Text, links, colors, code, images, files", "No"],
       ["Cloud sync", "No, everything stays on your PC", "Optional, with a Microsoft account"],
@@ -270,15 +271,15 @@ const en = {
       },
       {
         q: "Will it save my passwords?",
-        a: "Not from password managers. Wincy skips anything an app marks as sensitive (standard Windows clipboard flags such as ExcludeClipboardContentFromMonitorProcessing) and anything copied from the apps on its ignore list: Bitwarden, 1Password, KeePass, KeePassXC, Enpass, Dashlane, LastPass, NordPass and Proton Pass by default. You can add other apps in Settings.",
+        a: "Not from password managers. Wincy skips anything an app marks as sensitive (standard Windows clipboard flags such as ExcludeClipboardContentFromMonitorProcessing) and anything copied from the apps on its ignore list: Bitwarden, 1Password, KeePass, KeePassXC, Enpass, Dashlane, LastPass, NordPass and Proton Pass by default. You can add other apps in Settings. It also skips text that looks like a secret, such as a private key, an API token or a card number.",
       },
       {
         q: "Can I change the Alt+V shortcut?",
-        a: "Yes, in Settings. You can also choose how many clips to keep (50 to 10,000), stop capturing images, or make Enter copy without pasting.",
+        a: "Yes, in Settings. If another app already uses your shortcut, Wincy tells you and opens Settings so you can pick another. You can also choose how many clips to keep (50 to 10,000), delete old clips after a number of days, stop capturing images, or make Enter copy without pasting.",
       },
       {
         q: "Does it work on Windows 10?",
-        a: "Yes. Wincy is built with Rust and Tauri on the WebView2 that ships with Windows, and it looks at home on both: Mica on Windows 11, Acrylic on Windows 10, with light and dark themes.",
+        a: "Yes. Wincy is built with Rust and Tauri on the WebView2 that ships with Windows, and it looks at home on both: Mica on Windows 11, Acrylic on Windows 10, with light and dark themes and the accent color of your choice.",
       },
       {
         q: "How do updates work?",
@@ -287,6 +288,10 @@ const en = {
       {
         q: "Why does Windows warn me when I install it?",
         a: "The installer isn't signed with a code-signing certificate, and SmartScreen warns about unsigned apps until they build a reputation. The source code and the release pipeline are public on GitHub, so you can check exactly what you're running.",
+      },
+      {
+        q: "How do I report a bug?",
+        a: "Open an issue on GitHub and paste what Settings → Copy diagnostics gives you: versions, settings and recent log lines, never what you copied.",
       },
       {
         q: "How do I uninstall it?",

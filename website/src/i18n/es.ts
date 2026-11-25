@@ -124,7 +124,7 @@ const es: Dict = {
         fragment: "detect",
         keys: ["Tab"],
         title: "Sabe qué has copiado",
-        body: "Reconoce enlaces, colores, código, imágenes y archivos, y los enseña como toca. Con Tab filtras por tipo.",
+        body: "Reconoce enlaces, colores, código, imágenes y archivos, y los enseña como toca; también puedes buscar el texto de tus capturas. Con Tab filtras por tipo.",
       },
       {
         fragment: "pins",
@@ -152,7 +152,7 @@ const es: Dict = {
     typeLabel: "Escribe",
     rows: [
       { keys: ["Alt+V"], action: "Abrir Wincy desde cualquier aplicación (puedes cambiarlo)" },
-      { keys: [], action: "Filtrar la lista con búsqueda difusa" },
+      { keys: [], action: "Filtrar la lista con búsqueda difusa; añade app:chrome para ver solo lo que vino de Chrome" },
       { keys: ["↑", "↓", "Re Pág", "Av Pág", "Inicio", "Fin"], action: "Mover la selección" },
       { keys: ["Intro"], action: "Pegar" },
       { keys: ["Mayús+Intro"], action: "Pegar sin formato" },
@@ -172,8 +172,8 @@ const es: Dict = {
       ["Telemetría", "Ninguna, ni estadísticas de uso"],
       ["Cuenta", "Ninguna, ni sincronización en la nube"],
       ["Red", "Solo la búsqueda de actualizaciones, y puedes desactivarla"],
-      ["Gestores de contraseñas", "Ignorados, igual que lo que una aplicación marca como sensible"],
-      ["Captura", "La pausas con un clic cuando quieras"],
+      ["Contraseñas y claves", "Descartadas: gestores de contraseñas, lo que se marca como sensible y el texto que parece una clave de API o un número de tarjeta"],
+      ["Captura", "La pausas con un clic y, si quieres, lo antiguo se borra solo pasados unos días"],
       ["Código fuente", "Abierto, con licencia MIT"],
     ],
     settings: {
@@ -199,6 +199,7 @@ const es: Dict = {
       ["Tamaño del historial", "1000 elementos por defecto, hasta 10 000", "25 elementos"],
       ["Tras reiniciar", "Todo sigue ahí", "Se borra, salvo lo fijado"],
       ["Búsqueda difusa", "Sí, mientras escribes", "No"],
+      ["Texto en imágenes", "Se puede buscar, con el OCR que trae Windows", "No"],
       ["Pegado rápido", "Alt+1 … Alt+9", "No"],
       ["Filtros por tipo", "Texto, enlaces, colores, código, imágenes, archivos", "No"],
       ["Sincronización en la nube", "No, todo se queda en tu PC", "Opcional, con cuenta de Microsoft"],
@@ -255,15 +256,15 @@ const es: Dict = {
       },
       {
         q: "¿Guardará mis contraseñas?",
-        a: "No si vienen de un gestor de contraseñas. Wincy descarta lo que una aplicación marca como sensible (con marcas estándar del portapapeles de Windows, como ExcludeClipboardContentFromMonitorProcessing) y lo que se copia desde las aplicaciones de su lista de ignoradas: por defecto, Bitwarden, 1Password, KeePass, KeePassXC, Enpass, Dashlane, LastPass, NordPass y Proton Pass. Puedes añadir otras en Ajustes.",
+        a: "No si vienen de un gestor de contraseñas. Wincy descarta lo que una aplicación marca como sensible (con marcas estándar del portapapeles de Windows, como ExcludeClipboardContentFromMonitorProcessing) y lo que se copia desde las aplicaciones de su lista de ignoradas: por defecto, Bitwarden, 1Password, KeePass, KeePassXC, Enpass, Dashlane, LastPass, NordPass y Proton Pass. Puedes añadir otras en Ajustes. Además, descarta el texto que parece un secreto, como una clave privada, un token de API o un número de tarjeta.",
       },
       {
         q: "¿Puedo cambiar el atajo Alt+V?",
-        a: "Sí, en Ajustes. También puedes elegir cuántos elementos guardar (de 50 a 10 000), dejar de capturar imágenes o hacer que Intro solo copie, sin pegar.",
+        a: "Sí, en Ajustes. Si otra aplicación ya usa tu atajo, Wincy te avisa y abre los Ajustes para que elijas otro. También puedes elegir cuántos elementos guardar (de 50 a 10 000), borrar lo antiguo pasados unos días, dejar de capturar imágenes o hacer que Intro solo copie, sin pegar.",
       },
       {
         q: "¿Funciona en Windows 10?",
-        a: "Sí. Wincy está hecho con Rust y Tauri sobre el WebView2 que ya trae Windows, y se integra bien en los dos: Mica en Windows 11 y Acrílico en Windows 10, con tema claro y oscuro.",
+        a: "Sí. Wincy está hecho con Rust y Tauri sobre el WebView2 que ya trae Windows, y se integra bien en los dos: Mica en Windows 11 y Acrílico en Windows 10, con tema claro y oscuro y el color de énfasis que elijas.",
       },
       {
         q: "¿Cómo se actualiza?",
@@ -272,6 +273,10 @@ const es: Dict = {
       {
         q: "¿Por qué Windows me avisa al instalarlo?",
         a: "Porque el instalador no está firmado con un certificado de firma de código, y SmartScreen avisa de las aplicaciones sin firmar hasta que ganan reputación. El código fuente y el proceso de publicación son públicos en GitHub, así que puedes comprobar exactamente qué ejecutas.",
+      },
+      {
+        q: "¿Cómo informo de un error?",
+        a: "Abre un issue en GitHub y pega lo que te da Ajustes → Copiar diagnóstico: versiones, ajustes y las últimas líneas del registro, nunca lo que copias.",
       },
       {
         q: "¿Cómo lo desinstalo?",

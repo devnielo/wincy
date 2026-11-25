@@ -37,7 +37,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::core::{PCWSTR, PWSTR, w};
 
 use crate::db::{self, Clip, NewClip};
-use crate::{AppState, detect};
+use crate::{AppState, detect, ocr};
 
 const CF_DIB: u32 = 8;
 const CF_UNICODETEXT: u32 = 13;
@@ -87,7 +87,7 @@ pub fn start(app: AppHandle) -> std::io::Result<()> {
         .name("clipboard-listener".into())
         .spawn(|| {
             if let Err(e) = unsafe { listen() } {
-                eprintln!("clipboard listener failed: {e}");
+                log::error!("clipboard listener failed: {e}");
             }
         })?;
     Ok(())
@@ -165,15 +165,25 @@ fn on_update(app: &AppHandle) {
     }
     let state = app.state::<AppState>();
     if state.paused.load(Ordering::SeqCst) {
+        log::debug!("capture skipped: paused");
         return;
     }
     let Some((content, source)) = snapshot(&state) else {
         return;
     };
+    let (max_items, ignore_secrets, ocr_images) = {
+        let s = state.settings.lock().unwrap();
+        (s.max_items, s.ignore_secrets, s.ocr_images)
+    };
+    if let (true, Content::Text(text, _)) = (ignore_secrets, &content)
+        && let Some(pattern) = detect::looks_secret(text)
+    {
+        log::info!("capture skipped: secret pattern {pattern}");
+        return;
+    }
     let Some(clip) = to_new_clip(content, source, &state.images_dir) else {
         return;
     };
-    let max_items = state.settings.lock().unwrap().max_items;
     let result = {
         let conn = state.db.lock().unwrap();
         db::upsert(&conn, &clip).and_then(|_| db::trim(&conn, max_items))
@@ -182,8 +192,11 @@ fn on_update(app: &AppHandle) {
         Ok((_, images)) => {
             db::remove_images(&state.images_dir, &images);
             let _ = app.emit("clips-changed", ());
+            if ocr_images && clip.kind == "image" {
+                ocr::queue(clip.hash);
+            }
         }
-        Err(e) => eprintln!("storing clip failed: {e}"),
+        Err(e) => log::error!("storing clip failed: {e}"),
     }
 }
 
@@ -253,12 +266,14 @@ fn snapshot(state: &AppState) -> Option<(Content, Option<String>)> {
 fn checked_read(state: &AppState) -> Option<(Content, Option<String>)> {
     let f = formats();
     if available(f.exclude) || available(f.viewer_ignore) {
+        log::info!("capture skipped: excluded by the source app");
         return None;
     }
     let source = source_app();
     let capture_images = {
         let s = state.settings.lock().unwrap();
-        if source.as_deref().is_some_and(|exe| s.is_ignored(exe)) {
+        if let Some(exe) = source.as_deref().filter(|exe| s.is_ignored(exe)) {
+            log::info!("capture skipped: ignored app {exe}");
             return None;
         }
         s.capture_images
@@ -270,6 +285,7 @@ fn checked_read(state: &AppState) -> Option<(Content, Option<String>)> {
 fn read(capture_images: bool) -> Option<Content> {
     let f = formats();
     if get_bytes(f.can_include, 4).is_some_and(|b| b == [0, 0, 0, 0]) {
+        log::info!("capture skipped: excluded from clipboard history by the source app");
         return None;
     }
     if available(CF_HDROP) {
@@ -426,7 +442,7 @@ fn to_new_clip(content: Content, source_app: Option<String>, images_dir: &Path) 
             clip.image_size = Some((img.width(), img.height()));
             clip.kind = "image";
             if let Err(e) = save_image(images_dir, &clip.hash, &png, &img) {
-                eprintln!("saving image failed: {e}");
+                log::error!("saving image failed: {e}");
                 return None;
             }
         }
@@ -627,6 +643,15 @@ pub fn write(clip: &Clip, plain: bool) -> Result<(), String> {
         }
     };
 
+    send(items)
+}
+
+/// Puts plain text on the clipboard. The listener ignores this change.
+pub fn write_text(text: &str) -> Result<(), String> {
+    send(vec![(CF_UNICODETEXT, utf16z(text))])
+}
+
+fn send(items: Vec<(u32, Vec<u8>)>) -> Result<(), String> {
     let hwnd = LISTENER_HWND.load(Ordering::SeqCst);
     if hwnd == 0 {
         return Err("Clipboard listener is not running".into());

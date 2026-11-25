@@ -1,7 +1,7 @@
 import { Button } from "@heroui/react";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useState } from "react";
-import { checkForUpdate, errorMessage } from "../api";
+import { checkForUpdate, errorMessage, logError } from "../api";
 import { useI18n } from "../i18n";
 import { useClipboardStore } from "../store/useClipboardStore";
 
@@ -53,6 +53,7 @@ export function UpdateSection() {
       // On Windows the NSIS installer usually exits the app before this runs.
       await relaunch();
     } catch (e) {
+      logError(`update install failed: ${errorMessage(e)}`);
       setInstalling(false);
       setStatus({ kind: "error", message: errorMessage(e) });
     }

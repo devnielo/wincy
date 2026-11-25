@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "preview",
-  "description": "Permissions for the preview panel: it only listens to events (preview-clip, clips-changed, settings-changed)",
+  "description": "Permissions for the preview panel: it only listens to events (preview-clip, clips-changed, settings-changed) and writes logs",
   "windows": ["preview"],
-  "permissions": ["core:event:default"]
+  "permissions": ["core:event:default", "log:default"]
 }

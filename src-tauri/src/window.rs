@@ -13,6 +13,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow, WS_EX_NOACTIVATE,
 };
 
+use crate::settings::Theme;
+use crate::status;
+
 const LABEL: &str = "main";
 const PREVIEW: &str = "preview";
 const WIDTH: f64 = 600.0;
@@ -34,14 +37,34 @@ struct PreviewClip {
 }
 
 /// Mica on Windows 11; Acrylic when Mica is unavailable (Windows 10). Failures are cosmetic.
-pub fn apply_vibrancy(app: &AppHandle) {
+fn apply_vibrancy(app: &AppHandle) {
     for label in [LABEL, PREVIEW] {
         if let Some(win) = app.get_webview_window(label)
             && window_vibrancy::apply_mica(&win, None).is_err()
         {
-            let _ = window_vibrancy::apply_acrylic(&win, Some((18, 18, 18, 160)));
+            // Acrylic's tint is fixed, unlike Mica: pick it from the window's resolved theme.
+            let tint = match win.theme() {
+                Ok(tauri::Theme::Light) => (243, 243, 243, 160),
+                _ => (18, 18, 18, 160),
+            };
+            let _ = window_vibrancy::apply_acrylic(&win, Some(tint));
         }
     }
+}
+
+/// Mica/Acrylic follow the window theme, so it tracks the app theme, not only the system one.
+pub fn apply_theme(app: &AppHandle, theme: Theme) {
+    let theme = match theme {
+        Theme::System => None,
+        Theme::Light => Some(tauri::Theme::Light),
+        Theme::Dark => Some(tauri::Theme::Dark),
+    };
+    for label in [LABEL, PREVIEW] {
+        if let Some(win) = app.get_webview_window(label) {
+            let _ = win.set_theme(theme);
+        }
+    }
+    apply_vibrancy(app);
 }
 
 fn preview_hwnd(app: &AppHandle) -> Option<HWND> {
@@ -95,7 +118,7 @@ pub fn set_preview(app: &AppHandle, id: Option<i64>) {
     };
     let _ = app.emit_to(PREVIEW, "preview-clip", PreviewClip { id });
     if let Err(e) = place_preview(app) {
-        eprintln!("positioning preview failed: {e}");
+        log::warn!("positioning preview failed: {e}");
     }
     if let Some(hwnd) = preview_hwnd(app) {
         let _ = unsafe { ShowWindow(hwnd, SW_SHOWNOACTIVATE) };
@@ -107,7 +130,7 @@ pub fn palette_moved(app: &AppHandle) {
     if preview_visible(app)
         && let Err(e) = place_preview(app)
     {
-        eprintln!("positioning preview failed: {e}");
+        log::warn!("positioning preview failed: {e}");
     }
 }
 
@@ -170,10 +193,11 @@ pub fn show(app: &AppHandle, view: &str) {
         PREVIOUS.store(0, Ordering::SeqCst);
     }
     if let Err(e) = place_near_cursor(app, &win) {
-        eprintln!("positioning palette failed: {e}");
+        log::warn!("positioning palette failed: {e}");
     }
     let _ = win.show();
     let _ = win.set_focus();
+    status::refresh_accent(app);
     let _ = app.emit_to(LABEL, "palette-shown", Shown { view });
 }
 

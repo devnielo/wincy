@@ -47,7 +47,8 @@ If your change touches any of these, update `ARCHITECTURE.md` in the same pull r
 - **Rust:** `cargo fmt`; `cargo clippy -- -D warnings` must be clean. No `unwrap()`/`expect()` on data that comes from the clipboard, the database or the file system. Return errors as `String` from commands. Keep pure logic (such as `detect.rs`) unit-tested.
 - **TypeScript:** `strict` mode, no `any`. Components are function components; shared state lives in the zustand store.
 - **UI strings:** never hard-code; add them to `src/i18n.ts` in both `en` and `es`.
-- **Privacy:** never log clipboard contents, never send them over the network, never write them outside the app data folder.
+- **Privacy:** never log clipboard contents or text recognized in images (log the kind, size or exe name instead), never send them over the network, never write them outside the app data folder.
+- **Logging:** use the `log` macros in Rust (no `eprintln!`) and `@tauri-apps/plugin-log` in the frontend; everything ends up in the log file that **Copy diagnostics** includes.
 - Keep changes small and focused. Comment the *why*, not the *what*.
 
 ## Commits and pull requests
@@ -67,10 +68,10 @@ PR checklist:
 1. CI is green (build, fmt, clippy, tests).
 2. The change was tested by hand on Windows; the PR says which version, and UI changes include a screenshot.
 3. `docs/ARCHITECTURE.md` is updated if the contract changed.
-4. User-facing changes have an entry under **Unreleased** in [`CHANGELOG.md`](CHANGELOG.md), and both `README.md` and `README.es.md` are updated if needed.
+4. User-facing changes have an entry in the topmost (not yet released) section of [`CHANGELOG.md`](CHANGELOG.md), and both `README.md` and `README.es.md` are updated if needed.
 
 Maintainers squash-merge, so the PR title becomes the commit message.
 
 ## Releasing
 
-Maintainers: see [docs/RELEASING.md](docs/RELEASING.md).
+Maintainers: see [docs/RELEASING.md](docs/RELEASING.md), [docs/SIGNING.md](docs/SIGNING.md) (code signing) and [packaging/winget](packaging/winget/README.md) (winget package).

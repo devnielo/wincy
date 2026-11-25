@@ -45,6 +45,12 @@ body:
       description: Include error messages and screenshots if relevant.
     validations:
       required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: In Wincy, open Settings → **Copy diagnostics** and paste the result here. It has the app and Windows versions, your settings and the last log lines, never clip contents; read it before posting. If Wincy does not open, attach the newest file from `%LOCALAPPDATA%\dev.wincy.app\logs`.
+      render: text
   - type: input
     id: target-app
     attributes:

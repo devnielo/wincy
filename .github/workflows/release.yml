@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  actions: read # lets the SignPath action read this run's artifact
 
 jobs:
   release:
@@ -33,7 +34,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Unsigned installer (default). Used while the repo variable SIGNPATH_ORGANIZATION_ID is not set.
       - uses: tauri-apps/tauri-action@v1
+        if: vars.SIGNPATH_ORGANIZATION_ID == ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -45,3 +48,82 @@ jobs:
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
+
+      # Authenticode-signed installer via SignPath (docs/SIGNING.md). The updater .sig must cover the
+      # signed bytes, so: build -> SignPath signs -> tauri signer re-signs -> latest.json -> draft release.
+      - name: Read version from tag
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        run: '"VERSION=$($env:GITHUB_REF_NAME.TrimStart(''v''))" >> $env:GITHUB_ENV'
+
+      - name: Build unsigned installer
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm tauri build
+
+      - name: Upload unsigned installer
+        id: unsigned
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-installer
+          path: src-tauri/target/release/bundle/nsis/Wincy_${{ env.VERSION }}_x64-setup.exe
+          if-no-files-found: error
+
+      - name: Sign installer with SignPath
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'wincy' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          # Every release needs a manual approval in SignPath; give the approver an hour.
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed
+          parameters: |
+            version: ${{ toJSON(env.VERSION) }}
+
+      - name: Sign updater artifact and publish draft release
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          NOTES: 'See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md) for what changed. Download the `*_x64-setup.exe` installer below.'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:GITHUB_REF_NAME
+          $name = "Wincy_$($env:VERSION)_x64-setup.exe"
+          $exe = "signed/$name"
+          $auth = Get-AuthenticodeSignature $exe
+          if ($auth.Status -ne 'Valid') { throw "SignPath returned an installer without a valid signature: $($auth.Status)" }
+
+          pnpm tauri signer sign --app-version $env:VERSION $exe
+          if ($LASTEXITCODE) { throw 'tauri signer sign failed' }
+
+          $platform = [ordered]@{
+            signature = (Get-Content "$exe.sig" -Raw).Trim()
+            url = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag/$name"
+          }
+          [ordered]@{
+            version = $env:VERSION
+            notes = $env:NOTES
+            pub_date = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ', [cultureinfo]::InvariantCulture)
+            platforms = [ordered]@{ 'windows-x86_64' = $platform; 'windows-x86_64-nsis' = $platform }
+          } | ConvertTo-Json -Depth 4 | Set-Content signed/latest.json -Encoding utf8NoBOM
+
+          $files = $exe, "$exe.sig", 'signed/latest.json'
+          $draft = gh release view $tag --json isDraft --jq .isDraft 2>$null
+          if ($LASTEXITCODE) {
+            gh release create $tag @files --draft --verify-tag --title "Wincy v$env:VERSION" --notes $env:NOTES
+          } elseif ($draft -eq 'true') {
+            gh release upload $tag @files --clobber
+          } else {
+            throw "Release $tag is already published; ship a new version instead."
+          }
+          if ($LASTEXITCODE) { throw 'gh release failed' }

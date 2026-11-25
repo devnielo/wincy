@@ -19,6 +19,8 @@ Releases are built by GitHub Actions ([`.github/workflows/release.yml`](../.gith
 
 3. **Leave Workflow permissions on Read** (Settings → Actions → General): the workflows declare the write scopes they need.
 
+4. **Optional: Authenticode signing** through SignPath Foundation, so SmartScreen stops warning. It stays off until configured; see [SIGNING.md](SIGNING.md).
+
 ## Cutting a release
 
 1. Make sure `main` is green in CI.
@@ -26,7 +28,7 @@ Releases are built by GitHub Actions ([`.github/workflows/release.yml`](../.gith
    - `package.json` → `"version"`
    - `src-tauri/Cargo.toml` → `[package] version` (then run `cargo check` in `src-tauri/` so `Cargo.lock` is updated too)
    - `src-tauri/tauri.conf.json` → `"version"`
-3. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a fresh empty `## [Unreleased]` above it and update the compare links at the bottom.
+3. In `CHANGELOG.md`, turn the release's heading into `## [X.Y.Z] - YYYY-MM-DD` (it is either `## [X.Y.Z] - Unreleased` or the `## [Unreleased]` section), keep an empty `## [Unreleased]` above it and update the compare links at the bottom.
 4. Commit and tag:
 
    ```bash
@@ -35,7 +37,7 @@ Releases are built by GitHub Actions ([`.github/workflows/release.yml`](../.gith
    git push origin main vX.Y.Z
    ```
 
-5. Wait for the **Release** workflow to finish. It creates a draft release named `Wincy vX.Y.Z`.
+5. Wait for the **Release** workflow to finish. It creates a draft release named `Wincy vX.Y.Z`. With SignPath signing on, it first waits for you to approve the signing request in SignPath (link in the job log).
 6. Check the draft: the installer (`*_x64-setup.exe`), `*_x64-setup.exe.sig` and `latest.json` must be attached. Optionally paste the changelog section into the release notes.
 7. **Publish the draft.** Until it is published, the updater cannot see it: `releases/latest` only resolves to published, non-prerelease releases.
 
@@ -47,5 +49,7 @@ To rebuild an existing tag, run the workflow manually (Actions → Release → R
 - `tauri-action` with `uploadUpdaterJson: true` builds `latest.json` from the version, release notes, installer URL and signature, and uploads it to the release.
 - The app's updater checks `https://github.com/devnielo/wincy/releases/latest/download/latest.json`. GitHub redirects `latest/download/<file>` to the asset of the newest **published** release.
 - The updater downloads the installer only if its signature verifies against the public key built into the app, then runs it in passive mode and restarts Wincy.
+
+With SignPath signing on, the workflow builds with `pnpm tauri build` instead of `tauri-action`, has the installer Authenticode-signed, then signs the **signed** installer again with `tauri signer sign` (Authenticode changes the bytes, so the first `.sig` would not verify) and writes `latest.json` itself. See [SIGNING.md](SIGNING.md#how-the-signed-release-runs).
 
 If a release turns out to be broken, publish a fixed higher version. Deleting a release makes `latest` fall back to the previous one, but users who already updated stay on the broken version until a newer one ships.

@@ -7,9 +7,10 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
-use crate::{AppState, db, tray};
+use crate::{AppState, commands, db, ocr, status, tray, window};
 
 pub const MAX_ITEMS_RANGE: std::ops::RangeInclusive<u32> = 50..=10_000;
+pub const MAX_EXPIRE_DAYS: u32 = 365;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -23,6 +24,11 @@ pub struct Settings {
     pub theme: Theme,
     pub language: Language,
     pub check_updates: bool,
+    pub accent: Accent,
+    pub ignore_secrets: bool,
+    /// 0 = never.
+    pub expire_days: u32,
+    pub ocr_images: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -31,6 +37,20 @@ pub enum Theme {
     System,
     Light,
     Dark,
+}
+
+/// Stored for the frontend only; `Windows` follows the system accent color.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Accent {
+    Windows,
+    Blue,
+    Violet,
+    Teal,
+    Green,
+    Orange,
+    Rose,
+    Graphite,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -65,6 +85,10 @@ impl Default for Settings {
             theme: Theme::System,
             language: Language::System,
             check_updates: true,
+            accent: Accent::Windows,
+            ignore_secrets: true,
+            expire_days: 0,
+            ocr_images: true,
         }
     }
 }
@@ -77,6 +101,11 @@ impl Settings {
                 "maxItems must be between {} and {}",
                 MAX_ITEMS_RANGE.start(),
                 MAX_ITEMS_RANGE.end()
+            ));
+        }
+        if self.expire_days > MAX_EXPIRE_DAYS {
+            return Err(format!(
+                "expireDays must be between 0 and {MAX_EXPIRE_DAYS}"
             ));
         }
         self.shortcut = self.shortcut.trim().to_string();
@@ -121,8 +150,9 @@ pub fn load(app: &AppHandle) -> Settings {
             s.max_items = s
                 .max_items
                 .clamp(*MAX_ITEMS_RANGE.start(), *MAX_ITEMS_RANGE.end());
+            s.expire_days = s.expire_days.min(MAX_EXPIRE_DAYS);
             if s.shortcut.trim().parse::<Shortcut>().is_err() {
-                eprintln!(
+                log::warn!(
                     "settings: invalid shortcut {:?}; using the default",
                     s.shortcut
                 );
@@ -131,7 +161,7 @@ pub fn load(app: &AppHandle) -> Settings {
             s.validated().unwrap_or_default()
         }
         Err(e) => {
-            eprintln!(
+            log::warn!(
                 "settings: {} is invalid ({e}); backing it up",
                 path.display()
             );
@@ -161,12 +191,16 @@ pub fn swap_shortcut(app: &AppHandle, old: Option<&str>, new: &str) -> Result<()
     if let Some(old) = old {
         let _ = gs.unregister(old);
     }
-    gs.register(new).map_err(|e| {
-        if let Some(old) = old {
-            let _ = gs.register(old);
-        }
-        format!("Could not register the shortcut \"{new}\": {e}")
-    })
+    gs.register(new)
+        .inspect(|_| log::info!("shortcut {new} registered"))
+        .map_err(|e| {
+            if let Some(old) = old {
+                let _ = gs.register(old);
+            }
+            let msg = format!("Could not register the shortcut \"{new}\": {e}");
+            log::warn!("{msg}");
+            msg
+        })
 }
 
 pub fn sync_autostart(app: &AppHandle, enabled: bool) {
@@ -177,7 +211,7 @@ pub fn sync_autostart(app: &AppHandle, enabled: bool) {
         _ => Ok(()),
     };
     if let Err(e) = result {
-        eprintln!("autostart: {e}");
+        log::warn!("autostart: {e}");
     }
 }
 
@@ -187,12 +221,18 @@ pub fn save(app: &AppHandle, new: Settings) -> Result<Settings, String> {
     let state = app.state::<AppState>();
     let old = state.settings.lock().unwrap().clone();
 
-    swap_shortcut(app, Some(&old.shortcut), &new.shortcut)?;
+    let shortcut_error = match swap_shortcut(app, Some(&old.shortcut), &new.shortcut) {
+        Ok(()) => None,
+        // Still dead and unchanged: keep the banner, but let the other settings save.
+        Err(e) if old.shortcut == new.shortcut => Some(e),
+        Err(e) => return Err(e),
+    };
     if let Err(e) = write(&path(app)?, &new) {
         let _ = swap_shortcut(app, Some(&new.shortcut), &old.shortcut);
         return Err(format!("Could not save settings: {e}"));
     }
     *state.settings.lock().unwrap() = new.clone();
+    status::update(app, |s| s.shortcut_error = shortcut_error);
 
     if old.launch_at_startup != new.launch_at_startup {
         sync_autostart(app, new.launch_at_startup);
@@ -209,8 +249,15 @@ pub fn save(app: &AppHandle, new: Settings) -> Result<Settings, String> {
                     let _ = app.emit("clips-changed", ());
                 }
             }
-            Err(e) => eprintln!("trim: {e}"),
+            Err(e) => log::warn!("trim: {e}"),
         }
+    }
+    commands::expire(app);
+    if old.theme != new.theme {
+        window::apply_theme(app, new.theme);
+    }
+    if new.ocr_images && !old.ocr_images {
+        ocr::backfill(app);
     }
     tray::refresh(app);
     let _ = app.emit("settings-changed", &new);
@@ -227,6 +274,9 @@ mod tests {
         assert_eq!(s.max_items, 200);
         assert_eq!(s.shortcut, "Alt+V");
         assert!(s.paste_directly);
+        assert_eq!(s.accent, Accent::Windows);
+        assert!(s.ignore_secrets && s.ocr_images);
+        assert_eq!(s.expire_days, 0);
     }
 
     #[test]
@@ -239,6 +289,13 @@ mod tests {
         .unwrap();
         assert_eq!(ok.ignored_apps, ["keepass.exe"]);
         assert!(ok.is_ignored("KEEPASS.EXE"));
+        for days in [0, 1, 365] {
+            let s = Settings {
+                expire_days: days,
+                ..Default::default()
+            };
+            assert!(s.validated().is_ok());
+        }
 
         for bad in [
             Settings {
@@ -251,6 +308,10 @@ mod tests {
             },
             Settings {
                 shortcut: "Alt+Nope".into(),
+                ..Default::default()
+            },
+            Settings {
+                expire_days: 366,
                 ..Default::default()
             },
         ] {

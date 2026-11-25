@@ -1,18 +1,19 @@
-import { AlertDialog, Button, Description, Label, ListBox, NumberField, Select, Switch } from "@heroui/react";
-import { ArrowLeft, Coffee, ExternalLink, FolderOpen, Trash2 } from "lucide-react";
+import { Alert, AlertDialog, Button, Description, Label, ListBox, NumberField, Select, Switch } from "@heroui/react";
+import { ArrowLeft, Check, ClipboardCopy, Coffee, ExternalLink, FileText, FolderOpen, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, appVersion, errorMessage, openExternal } from "../api";
 import { useI18n, type MessageKey } from "../i18n";
 import { useClipboardStore } from "../store/useClipboardStore";
-import type { Language, Settings, Theme } from "../types";
+import type { Language, Settings } from "../types";
+import { AccentSwatches, ThemeCards } from "./AppearancePicker";
 import { IgnoredApps } from "./IgnoredApps";
 import { ShortcutRecorder } from "./ShortcutRecorder";
 import { UpdateSection } from "./UpdateSection";
 
 const REPO_URL = "https://github.com/devnielo/wincy";
 const SUPPORT_URL = "https://buymeacoffee.com/devnielo";
-const THEMES: Theme[] = ["system", "light", "dark"];
 const LANGUAGES: Language[] = ["system", "en", "es"];
+const EXPIRE_DAYS = [0, 1, 7, 30, 90];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -65,14 +66,13 @@ function Toggle({ field, label, hint }: { field: BoolKey; label: MessageKey; hin
   );
 }
 
-function Choice<T extends string>({ labelId, value, options, prefix, onChange }: {
+function Choice<T extends string>({ labelId, value, options, label, onChange }: {
   labelId: string;
   value: T;
   options: T[];
-  prefix: "theme" | "lang";
+  label: (option: T) => string;
   onChange: (value: T) => void;
 }) {
-  const { t } = useI18n();
   return (
     <Select
       aria-labelledby={labelId}
@@ -87,14 +87,61 @@ function Choice<T extends string>({ labelId, value, options, prefix, onChange }:
       <Select.Popover>
         <ListBox>
           {options.map((o) => (
-            <ListBox.Item key={o} id={o} textValue={t(`${prefix}.${o}` as MessageKey)}>
-              {t(`${prefix}.${o}` as MessageKey)}
+            <ListBox.Item key={o} id={o} textValue={label(o)}>
+              {label(o)}
               <ListBox.ItemIndicator />
             </ListBox.Item>
           ))}
         </ListBox>
       </Select.Popover>
     </Select>
+  );
+}
+
+function ShortcutBanner({ shortcut }: { shortcut: string }) {
+  const { t } = useI18n();
+  const error = useClipboardStore((s) => s.status?.shortcutError);
+  if (!error) return null;
+  return (
+    <Alert status="danger" role="alert" className="rounded-lg border border-danger/30 bg-danger-soft shadow-none">
+      <Alert.Indicator />
+      <Alert.Content>
+        <Alert.Title>{t("s.shortcutTaken", { shortcut: shortcut.split("+").join(" + ") })}</Alert.Title>
+        <Alert.Description className="text-xs text-foreground/80" title={error}>
+          {t("s.shortcutTakenBody")}
+        </Alert.Description>
+      </Alert.Content>
+    </Alert>
+  );
+}
+
+function Diagnostics({ run }: { run: (action: () => Promise<unknown>) => void }) {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  return (
+    <div className="flex flex-col gap-2 px-3 py-2.5">
+      <div className="flex flex-col">
+        <span className="text-sm">{t("s.diagnostics")}</span>
+        <span className="text-xs text-muted">{t("s.diagnosticsHint")}</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="secondary" onPress={() => run(() => api.copyDiagnostics().then(() => setCopied(true)))}>
+          {copied ? <Check size={14} className="text-success" /> : <ClipboardCopy size={14} />}
+          <span aria-live="polite">{copied ? t("s.copied") : t("s.copyDiagnostics")}</span>
+        </Button>
+        <Button size="sm" variant="secondary" onPress={() => run(api.openLogDir)}>
+          <FileText size={14} />
+          {t("s.openLogDir")}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -152,10 +199,42 @@ export function SettingsView() {
 
       {settings && (
         <div className="wincy-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+          <ShortcutBanner shortcut={settings.shortcut} />
+
           <Section title={t("s.general")}>
             <Row id="set-shortcut" label={t("s.shortcut")} hint={t("s.shortcutHint")}>
               <ShortcutRecorder labelId="set-shortcut" />
             </Row>
+            <Toggle field="launchAtStartup" label="s.launchAtStartup" />
+            <Toggle field="pasteDirectly" label="s.pasteDirectly" hint="s.pasteDirectlyHint" />
+          </Section>
+
+          <Section title={t("s.appearance")}>
+            <div className="flex flex-col gap-2.5 px-3 py-3">
+              <span id="set-theme" className="text-sm">
+                {t("s.theme")}
+              </span>
+              <ThemeCards labelId="set-theme" settings={settings} save={save} />
+            </div>
+            <div className="flex flex-col gap-2.5 px-3 py-3">
+              <span className="text-sm">
+                <span id="set-accent">{t("s.accent")}</span>
+                <span className="text-muted"> · {t(`accent.${settings.accent}`)}</span>
+              </span>
+              <AccentSwatches labelId="set-accent" settings={settings} save={save} />
+            </div>
+            <Row id="set-lang" label={t("s.language")}>
+              <Choice
+                labelId="set-lang"
+                value={settings.language}
+                options={LANGUAGES}
+                label={(o) => t(`lang.${o}`)}
+                onChange={(language) => save({ language })}
+              />
+            </Row>
+          </Section>
+
+          <Section title={t("s.history")}>
             <Row id="set-max" label={t("s.maxItems")} hint={t("s.maxItemsHint")}>
               <NumberField
                 aria-labelledby="set-max"
@@ -185,21 +264,34 @@ export function SettingsView() {
                 </NumberField.Group>
               </NumberField>
             </Row>
-            <Toggle field="launchAtStartup" label="s.launchAtStartup" />
-            <Toggle field="pasteDirectly" label="s.pasteDirectly" hint="s.pasteDirectlyHint" />
+            <Row id="set-expire" label={t("s.expireDays")} hint={t("s.expireDaysHint")}>
+              <Choice
+                labelId="set-expire"
+                value={String(settings.expireDays)}
+                // A hand-edited value outside the presets still shows as itself.
+                options={[...new Set([...EXPIRE_DAYS, settings.expireDays])].sort((a, b) => a - b).map(String)}
+                label={(o) => (o === "0" ? t("expire.never") : o === "1" ? t("expire.day") : t("expire.days", { n: o }))}
+                onChange={(value) => {
+                  const days = Number(value);
+                  const old = settings.expireDays;
+                  // A shorter window deletes history right away, so it needs a confirmation.
+                  if (days === 0 || (old !== 0 && days > old)) save({ expireDays: days });
+                  else
+                    ask({
+                      title: t("s.expireTitle"),
+                      body: t("s.trimBody"),
+                      action: t("s.trim"),
+                      run: () => save({ expireDays: days }),
+                    });
+                }}
+              />
+            </Row>
             <Toggle field="captureImages" label="s.captureImages" />
-          </Section>
-
-          <Section title={t("s.appearance")}>
-            <Row id="set-theme" label={t("s.theme")}>
-              <Choice labelId="set-theme" prefix="theme" value={settings.theme} options={THEMES} onChange={(theme) => save({ theme })} />
-            </Row>
-            <Row id="set-lang" label={t("s.language")}>
-              <Choice labelId="set-lang" prefix="lang" value={settings.language} options={LANGUAGES} onChange={(language) => save({ language })} />
-            </Row>
+            <Toggle field="ocrImages" label="s.ocrImages" hint="s.ocrImagesHint" />
           </Section>
 
           <Section title={t("s.privacy")}>
+            <Toggle field="ignoreSecrets" label="s.ignoreSecrets" hint="s.ignoreSecretsHint" />
             <div className="flex flex-col gap-2 px-3 py-2.5">
               <div className="flex flex-col">
                 <span className="text-sm">{t("s.ignoredApps")}</span>
@@ -238,6 +330,7 @@ export function SettingsView() {
                 {t("s.clearHistory")}
               </Button>
             </div>
+            <Diagnostics run={run} />
           </Section>
 
           <footer className="flex items-center justify-between px-1 pb-1 text-xs text-muted">
