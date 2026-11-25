@@ -86,6 +86,7 @@ const es: Dict = {
       lines: "Líneas",
       size: "Tamaño",
       files: "{n} archivos",
+      recognized: "Texto reconocido",
     },
     items: [
       { kind: "text", text: "¡Gracias! Te envío el contrato firmado antes del viernes.", app: "outlook.exe", ago: 3, first: 4320, uses: 6, pinned: true },
@@ -93,6 +94,7 @@ const es: Dict = {
       { kind: "color", text: "#E8590C", app: "figma.exe", ago: 1, first: 1, uses: 0 },
       { kind: "url", text: "https://learn.microsoft.com/es-es/windows/win32/dataxchg/clipboard", app: "msedge.exe", ago: 7, first: 7, uses: 1 },
       { kind: "image", text: "", app: "SnippingTool.exe", ago: 12, first: 12, uses: 0, size: [1280, 720] },
+      { kind: "image", text: "", app: "ShareX.exe", ago: 95, first: 95, uses: 1, size: [640, 360], ocr: "Northwind Studio\nFactura / Invoice #2026-114\n20 Nov 2026 – 20 Dec 2026\nTotal\n1.240,00 €" },
       {
         kind: "code",
         text: "export function debounce(fn, ms) {\n  let t;\n  return (...args) => {\n    clearTimeout(t);\n    t = setTimeout(() => fn(...args), ms);\n  };\n}",

@@ -4,6 +4,7 @@ import { Code, Files, Link, Pin, PinOff, Trash, Type } from "@lucide/astro";
 import type { DemoClip, Dict } from "../i18n/en";
 import { parseColor, rowLabel, rowMeta } from "../lib/clips";
 import shot from "../assets/demo-shot.svg";
+import invoice from "../assets/demo-invoice.svg";
 
 interface Props {
   clip: DemoClip;
@@ -33,7 +34,7 @@ const labelledby = id ? [`${id}-t`, clip.pinned ? `${id}-p` : "", `${id}-m`].fil
       rgb ? (
         <span class="swatch" style={`background: rgb(${rgb.join(", ")})`} />
       ) : clip.kind === "image" ? (
-        <img class="thumb" src={shot.src} alt="" width="28" height="28" draggable="false" />
+        <img class="thumb" src={(clip.ocr ? invoice : shot).src} alt="" width="28" height="28" draggable="false" />
       ) : (
         <Icon size={16} />
       )

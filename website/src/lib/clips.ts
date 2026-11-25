@@ -109,9 +109,20 @@ export function score(query: string, fields: string[]): number | null {
   return total;
 }
 
+/** Splits `app:<term>` tokens (OR, without ".exe") from the rest of the query, like the app's src/lib/query.ts. */
+export function splitQuery(query: string): { apps: string[]; rest: string } {
+  const words = query.trim().split(/\s+/).filter(Boolean);
+  const isApp = (w: string) => /^app:/i.test(w);
+  const apps = words.filter(isApp).map((w) => fold(w.slice(4)).replace(/\.exe$/, "")).filter(Boolean);
+  return { apps, rest: words.filter((w) => !isApp(w)).join(" ") };
+}
+
+export const matchesApp = (clip: DemoClip, apps: string[]) =>
+  !apps.length || apps.some((a) => fold(clip.app).replace(/\.exe$/, "").includes(a));
+
 /** What the search looks at for a clip: its content, its source app, its kind (enum and label). */
 export const haystack = (clip: DemoClip, d: Demo) => [
-  fold(clip.kind === "files" ? (clip.files ?? []).join(" ") : rowLabel(clip, d)),
+  fold(clip.kind === "files" ? (clip.files ?? []).join(" ") : `${rowLabel(clip, d)} ${clip.ocr ?? ""}`),
   fold(clip.app),
   fold(`${clip.kind} ${d.kinds[clip.kind]}`),
 ];

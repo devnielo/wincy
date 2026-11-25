@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" font-family="Segoe UI, system-ui, sans-serif">
+  <!-- Sample image with text for the demo's OCR clip; its text is mirrored in the i18n `ocr` field. Not a real document. -->
+  <rect width="640" height="360" fill="#f3f4f6"/>
+  <rect x="24" y="24" width="592" height="312" rx="6" fill="#fff"/>
+  <rect x="24" y="24" width="592" height="6" fill="#0067c0"/>
+  <text x="56" y="76" font-size="18" fill="#4b5563">Northwind Studio</text>
+  <text x="56" y="124" font-size="34" font-weight="600" fill="#111827">Factura / Invoice #2026-114</text>
+  <text x="56" y="160" font-size="15" fill="#6b7280">20 Nov 2026 – 20 Dec 2026</text>
+  <rect x="56" y="196" width="528" height="1.5" fill="#e5e7eb"/>
+  <text x="56" y="262" font-size="22" fill="#374151">Total</text>
+  <text x="584" y="264" font-size="34" font-weight="600" fill="#111827" text-anchor="end">1.240,00 €</text>
+</svg>

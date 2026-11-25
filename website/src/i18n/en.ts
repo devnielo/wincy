@@ -13,6 +13,7 @@ export interface DemoClip {
   rich?: boolean;
   size?: [number, number];
   files?: string[];
+  ocr?: string; // text "recognized" in the image (shown with demo-invoice.svg)
 }
 
 const en = {
@@ -101,6 +102,7 @@ const en = {
       lines: "Lines",
       size: "Size",
       files: "{n} files",
+      recognized: "Recognized text",
     },
     items: [
       { kind: "text", text: "Thanks! I'll send the signed contract over by Friday.", app: "outlook.exe", ago: 3, first: 4320, uses: 6, pinned: true },
@@ -108,6 +110,7 @@ const en = {
       { kind: "color", text: "#E8590C", app: "figma.exe", ago: 1, first: 1, uses: 0 },
       { kind: "url", text: "https://learn.microsoft.com/windows/win32/dataxchg/clipboard", app: "msedge.exe", ago: 7, first: 7, uses: 1 },
       { kind: "image", text: "", app: "SnippingTool.exe", ago: 12, first: 12, uses: 0, size: [1280, 720] },
+      { kind: "image", text: "", app: "ShareX.exe", ago: 95, first: 95, uses: 1, size: [640, 360], ocr: "Northwind Studio\nFactura / Invoice #2026-114\n20 Nov 2026 – 20 Dec 2026\nTotal\n1.240,00 €" },
       {
         kind: "code",
         text: "export function debounce(fn, ms) {\n  let t;\n  return (...args) => {\n    clearTimeout(t);\n    t = setTimeout(() => fn(...args), ms);\n  };\n}",

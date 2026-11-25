@@ -1385,6 +1385,20 @@ main {
   object-fit: contain;
 }
 
+.pv-ocr .pv-image {
+  height: auto;
+  max-height: 150px;
+}
+
+.pv-ocr-label {
+  margin: 16px 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-muted);
+}
+
 .pv-files {
   display: flex;
   flex-direction: column;
