@@ -393,7 +393,7 @@ const facts = [`v${VERSION}`, ...t.hero.facts];
       </div>
       <div class="foot">
         <p class="foot-license">
-          <img src={logo} alt={t.meta.logoAlt} width="24" height="24" loading="lazy" />
+          <picture><source media="(prefers-color-scheme: dark)" srcset={`${base}/logo-dark.svg`} /><img src={`${base}/logo-light.svg`} alt="Wincy" width="79" height="24" /></picture>
           {t.footer.license}
         </p>
         <ul class="foot-links">

@@ -33,7 +33,7 @@ const sections = [
     <link rel="canonical" href={canonical} />
     {langs.map((l) => <link rel="alternate" hreflang={l} href={getAbsoluteLocaleUrl(l)} />)}
     <link rel="alternate" hreflang="x-default" href={getAbsoluteLocaleUrl("en")} />
-    <link rel="icon" href={`${base}/logo.svg`} type="image/svg+xml" />
+    <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
     <link rel="sitemap" href={`${base}/sitemap-index.xml`} />
     <meta name="theme-color" content="#f4f4f5" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#121214" media="(prefers-color-scheme: dark)" />
@@ -60,8 +60,7 @@ const sections = [
     <header class="site-header">
       <div class="wrap header-inner">
         <a class="brand" href={getRelativeLocaleUrl(lang)}>
-          <img src={`${base}/logo.svg`} alt="" width="28" height="28" />
-          <span>Wincy</span>
+          <picture><source media="(prefers-color-scheme: dark)" srcset={`${base}/logo-dark.svg`} /><img src={`${base}/logo-light.svg`} alt="Wincy" width="96" height="29" /></picture>
         </a>
         <nav class="site-nav" aria-label={t.nav.label}>
           {sections.map(([id, label]) => <a class="nav-link" href={`#${id}`}>{label}</a>)}
@@ -91,7 +90,7 @@ const sections = [
       </div>
       <div id="site-menu" class="menu" popover>
         <div class="menu-head">
-          <span class="brand"><img src={`${base}/logo.svg`} alt="" width="28" height="28" /><span>Wincy</span></span>
+          <span class="brand"><picture><source media="(prefers-color-scheme: dark)" srcset={`${base}/logo-dark.svg`} /><img src={`${base}/logo-light.svg`} alt="Wincy" width="96" height="29" /></picture></span>
           <button type="button" class="icon-btn" popovertarget="site-menu" popovertargetaction="hide" aria-label={t.nav.closeMenu}>
             <X size={22} aria-hidden="true" />
           </button>

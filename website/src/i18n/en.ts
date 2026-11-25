@@ -25,7 +25,7 @@ const en = {
     description:
       "Wincy keeps what you copy and brings it back with Alt+V, right next to your pointer. Fuzzy search, pins and plain-text paste. Free and open source for Windows.",
     logoAlt: "Wincy logo",
-    ogAlt: "Wincy's palette of recent clips on a Windows desktop, next to the words: Clipboard history for Windows, one shortcut away.",
+    ogAlt: "An illustrated clipboard with a brass clip beside the Wincy wordmark and the words Clipboard history for Windows, one shortcut away.",
   },
   nav: {
     skip: "Skip to content",

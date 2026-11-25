@@ -1,6 +1,7 @@
 import { Alert, AlertDialog, Button, Description, Label, ListBox, NumberField, Select, Switch } from "@heroui/react";
 import { ArrowLeft, Check, ClipboardCopy, Coffee, ExternalLink, FileText, FolderOpen, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import markSmall from "../../assets/brand/mark-small.svg";
 import { api, appVersion, errorMessage, openExternal } from "../api";
 import { useI18n, type MessageKey } from "../i18n";
 import { useClipboardStore } from "../store/useClipboardStore";
@@ -334,7 +335,7 @@ export function SettingsView() {
           </Section>
 
           <footer className="flex items-center justify-between px-1 pb-1 text-xs text-muted">
-            <span>Wincy · {t("s.version", { version })}</span>
+            <span className="inline-flex items-center gap-1.5"><img src={markSmall} width={16} height={16} alt="" />Wincy · {t("s.version", { version })}</span>
             <div className="flex gap-1">
               <Button size="sm" variant="ghost" onPress={() => run(() => openExternal(SUPPORT_URL))}>
                 <Coffee size={12} />

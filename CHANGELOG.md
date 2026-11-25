@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-25
+
+### Changed
+
+- New brand: an illustrated kraft clipboard with a brass ring clip replaces the placeholder logo in the app icon, tray icon, Settings footer, README and website (favicon, header, wallpapers and social card).
+
 ## [0.2.0] - 2026-11-25
 
 ### Added
@@ -38,6 +44,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Settings: shortcut, history size, launch at startup, paste directly, capture images, theme, language (English, Spanish).
 - Signed auto-updates from GitHub Releases.
 
-[Unreleased]: https://github.com/devnielo/wincy/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/devnielo/wincy/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/devnielo/wincy/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/devnielo/wincy/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/devnielo/wincy/releases/tag/v0.1.0

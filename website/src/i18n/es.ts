@@ -9,7 +9,7 @@ const es: Dict = {
     description:
       "Wincy guarda lo que copias y te lo devuelve con Alt+V, junto al puntero. Búsqueda difusa, fijados y pegado sin formato. Gratis y de código abierto para Windows.",
     logoAlt: "Logotipo de Wincy",
-    ogAlt: "La paleta de Wincy con lo último que has copiado sobre un escritorio de Windows, junto al texto en inglés: Clipboard history for Windows, one shortcut away.",
+    ogAlt: "Un portapapeles ilustrado con una pinza dorada junto al nombre Wincy y el lema en inglés Clipboard history for Windows, one shortcut away.",
   },
   nav: {
     skip: "Saltar al contenido",
