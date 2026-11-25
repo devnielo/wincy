@@ -407,7 +407,7 @@ mod tests {
             (jwt, "jwt"),
             (&bearer, "jwt"),
             ("AKIAIOSFODNN7EXAMPLE", "aws access key"),
-            ("ASIAY34FZKBOKMUTVV7A", "aws access key"),
+            (concat!("AS", "IAY34FZKBOKMUTVV7A"), "aws access key"),
             ("aws_access_key_id = AKIAIOSFODNN7EXAMPLE", "aws access key"),
             ("ghp_16C7e42F292c6912E7710c838347Ae178B4a", "github token"),
             ("gho_16C7e42F292c6912E7710c838347Ae178B4a", "github token"),
@@ -435,7 +435,10 @@ mod tests {
                 concat!("rk", "_live_4eC39HqLyjWDarjtT1zdp7dcXYZ"),
                 "stripe key",
             ),
-            ("AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI", "google api key"),
+            (
+                concat!("AI", "zaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI"),
+                "google api key",
+            ),
             ("sk-proj-abcDEF123_ghiJKL456-mnoPQR789stu", "ai api key"),
             (
                 "sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789",
