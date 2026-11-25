@@ -91,6 +91,7 @@ const en = {
   "s.trim": "Delete",
   "s.version": "Version {version}",
   "s.github": "Source code on GitHub",
+  "s.support": "Buy me a coffee",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -185,6 +186,7 @@ const es: Record<MessageKey, string> = {
   "s.trim": "Eliminar",
   "s.version": "Versión {version}",
   "s.github": "Código fuente en GitHub",
+  "s.support": "Invítame a un café",
 };
 
 const dictionaries = { en, es };

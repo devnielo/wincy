@@ -13,6 +13,7 @@
   <a href="https://github.com/devnielo/wincy/releases/latest"><img src="https://img.shields.io/github/v/release/devnielo/wincy?sort=semver" alt="Latest release"></a>
   <a href="https://github.com/devnielo/wincy/actions/workflows/ci.yml"><img src="https://github.com/devnielo/wincy/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/devnielo/wincy" alt="MIT license"></a>
+  <a href="https://buymeacoffee.com/devnielo"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=000" alt="Buy me a coffee"></a>
 </p>
 
 <p align="center">
@@ -151,6 +152,10 @@ Directions, not promises. Open an issue to discuss before starting work.
 - Export / import of pinned items
 - More languages
 - winget and Scoop packages
+
+## Support the project
+
+Wincy is free and open source, and always will be. If it saves you time every day, you can [buy me a coffee](https://buymeacoffee.com/devnielo) — it helps keep the project maintained. Starring the repo and reporting bugs helps too.
 
 ## Contributing
 

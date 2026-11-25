@@ -1,5 +1,5 @@
 import { AlertDialog, Button, Description, Label, ListBox, NumberField, Select, Switch } from "@heroui/react";
-import { ArrowLeft, ExternalLink, FolderOpen, Trash2 } from "lucide-react";
+import { ArrowLeft, Coffee, ExternalLink, FolderOpen, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, appVersion, errorMessage, openExternal } from "../api";
 import { useI18n, type MessageKey } from "../i18n";
@@ -10,6 +10,7 @@ import { ShortcutRecorder } from "./ShortcutRecorder";
 import { UpdateSection } from "./UpdateSection";
 
 const REPO_URL = "https://github.com/devnielo/wincy";
+const SUPPORT_URL = "https://buymeacoffee.com/devnielo";
 const THEMES: Theme[] = ["system", "light", "dark"];
 const LANGUAGES: Language[] = ["system", "en", "es"];
 
@@ -241,10 +242,16 @@ export function SettingsView() {
 
           <footer className="flex items-center justify-between px-1 pb-1 text-xs text-muted">
             <span>Wincy · {t("s.version", { version })}</span>
-            <Button size="sm" variant="ghost" onPress={() => run(() => openExternal(REPO_URL))}>
-              {t("s.github")}
-              <ExternalLink size={12} />
-            </Button>
+            <div className="flex gap-1">
+              <Button size="sm" variant="ghost" onPress={() => run(() => openExternal(SUPPORT_URL))}>
+                <Coffee size={12} />
+                {t("s.support")}
+              </Button>
+              <Button size="sm" variant="ghost" onPress={() => run(() => openExternal(REPO_URL))}>
+                {t("s.github")}
+                <ExternalLink size={12} />
+              </Button>
+            </div>
           </footer>
         </div>
       )}
