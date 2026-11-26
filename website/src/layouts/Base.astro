@@ -1,9 +1,10 @@
 ---
 import "@fontsource-variable/schibsted-grotesk";
 import "../styles/global.css";
-import { Coffee, Menu, SunMoon, X } from "@lucide/astro";
+import { Menu, SunMoon, X } from "@lucide/astro";
 import { getAbsoluteLocaleUrl, getRelativeLocaleUrl } from "astro:i18n";
 import Appearance from "../components/Appearance.astro";
+import CoffeeMark from "../components/CoffeeMark.astro";
 import GitHubMark from "../components/GitHubMark.astro";
 import Logo from "../components/Logo.astro";
 // The app's accent palette (light, dark), so the site offers exactly the app's colours.
@@ -151,7 +152,7 @@ const sections = [
             <GitHubMark size={20} />
           </a>
           <a class="icon-btn support-btn" href={SUPPORT_URL} aria-label={t.footer.support} title={t.footer.support}>
-            <Coffee size={20} aria-hidden="true" />
+            <CoffeeMark />
           </a>
           <a class="btn btn-primary btn-sm header-download" href={DOWNLOAD_URL}>
             <span class="label-long">{t.hero.download}</span>
