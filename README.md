@@ -238,6 +238,17 @@ Directions, not promises. Open an issue to discuss before starting work.
 - More languages
 - winget and Scoop packages
 
+## Code signing policy
+
+Every release is built by GitHub Actions from this public repository. Once approved, Windows releases will be signed: free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org). Until then, releases are unsigned.
+
+- Committers and reviewers: [@devnielo](https://github.com/devnielo)
+- Approvers: [@devnielo](https://github.com/devnielo)
+
+Multi-factor authentication is required for everyone with these roles.
+
+**Privacy:** this program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it. The only network call is the update check against GitHub Releases, which you can turn off in Settings.
+
 ## Support the project
 
 Wincy is free and open source, and always will be. If it saves you time every day, you can [buy me a coffee](https://buymeacoffee.com/devnielo) — it helps keep the project maintained. Starring the repo and reporting bugs helps too.

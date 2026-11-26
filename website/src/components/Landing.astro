@@ -29,6 +29,7 @@ import Base from "../layouts/Base.astro";
 import GitHubMark from "./GitHubMark.astro";
 import Keys from "./Keys.astro";
 import Palette from "./Palette.astro";
+import Logo from "./Logo.astro";
 import Row from "./Row.astro";
 import { DOWNLOAD_URL, INSTALLER, REPO_URL, SUPPORT_URL, VERSION } from "../consts";
 import { dictionaries, type Lang } from "../i18n";
@@ -337,6 +338,19 @@ const facts = [`v${VERSION}`, ...t.hero.facts];
         <Info size={18} aria-hidden="true" />
         {t.install.note}
       </p>
+      <div id="code-signing" class="policy">
+        <h3>{t.signing.title}</h3>
+        <dl class="tracings">
+          {
+            t.signing.rows.map((row) => (
+              <div>
+                <dt>{row.term}</dt>
+                <dd>{row.parts.map((part) => (typeof part === "string" ? part : <a href={part[1]}>{part[0]}</a>))}</dd>
+              </div>
+            ))
+          }
+        </dl>
+      </div>
     </div>
   </section>
 
@@ -393,7 +407,7 @@ const facts = [`v${VERSION}`, ...t.hero.facts];
       </div>
       <div class="foot">
         <p class="foot-license">
-          <picture><source media="(prefers-color-scheme: dark)" srcset={`${base}/logo-dark.svg`} /><img src={`${base}/logo-light.svg`} alt="Wincy" width="79" height="24" /></picture>
+          <Logo width={79} height={24} />
           {t.footer.license}
         </p>
         <ul class="foot-links">
@@ -402,6 +416,7 @@ const facts = [`v${VERSION}`, ...t.hero.facts];
           <li><a href={`${REPO_URL}/issues`}>{t.footer.issues}</a></li>
           <li><a href={SUPPORT_URL}>{t.footer.support}</a></li>
           <li><a href={`${REPO_URL}/blob/main/LICENSE`}>MIT</a></li>
+          <li><a href="#code-signing">{t.footer.signing}</a></li>
         </ul>
         <nav class="foot-lang" aria-label={t.nav.language}>
           {

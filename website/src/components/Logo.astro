@@ -1,0 +1,7 @@
+---
+// The wordmark in its light and dark files; global.css shows the one that matches the theme.
+const { width, height } = Astro.props as { width: number; height: number };
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
+<img class="logo-light" src={`${base}/logo-light.svg`} alt="Wincy" width={width} height={height} /><img class="logo-dark" src={`${base}/logo-dark.svg`} alt="Wincy" width={width} height={height} />

@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "website/src/styles/global.css"
+        ],
+        "createdAt": "2026-11-25T18:06:43.790Z",
+        "reason": "Claude: same exception as website/.impeccable/config.json — the demo's .row.is-selected::before replicates the real app's Windows 11 Fluent selection pill (src/components/ClipItem.tsx), not a card accent; scoped from the repo root because the hook reports root-relative paths"
+      }
+    ]
+  }
+}

@@ -321,6 +321,47 @@ const en = {
     releases: "Releases",
     issues: "Report a bug",
     support: "Buy me a coffee",
+    signing: "Code signing policy",
+  },
+  appearance: {
+    label: "Appearance",
+    mode: "Theme",
+    system: "System",
+    light: "Light",
+    dark: "Dark",
+    accent: "Accent color",
+    accents: {
+      windows: "Windows",
+      blue: "Blue",
+      violet: "Violet",
+      teal: "Teal",
+      green: "Green",
+      orange: "Orange",
+      rose: "Rose",
+      graphite: "Graphite",
+    },
+  },
+  // Text parts; a [label, url] pair is a link.
+  signing: {
+    title: "Code signing policy",
+    rows: [
+      { term: "Builds", parts: ["Every release is built by GitHub Actions from the ", ["public repository", "https://github.com/devnielo/wincy"], ", so you can check what you run against its source."] },
+      {
+        term: "Signing",
+        parts: [
+          "Once approved, Windows releases will be signed: free code signing provided by ",
+          ["SignPath.io", "https://about.signpath.io"],
+          ", certificate by ",
+          ["SignPath Foundation", "https://signpath.org"],
+          ". Until then, releases are unsigned.",
+        ],
+      },
+      {
+        term: "Roles",
+        parts: ["Author, reviewer and approver: the maintainer, ", ["@devnielo", "https://github.com/devnielo"], " on GitHub. Multi-factor authentication is required."],
+      },
+      { term: "Privacy", parts: ["Wincy sends no data anywhere except the update check against GitHub Releases, which you can turn off."] },
+    ] as { term: string; parts: (string | [string, string])[] }[],
   },
 };
 

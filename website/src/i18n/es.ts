@@ -305,6 +305,46 @@ const es: Dict = {
     releases: "Versiones",
     issues: "Informar de un error",
     support: "Invítame a un café",
+    signing: "Política de firma de código",
+  },
+  appearance: {
+    label: "Apariencia",
+    mode: "Tema",
+    system: "Sistema",
+    light: "Claro",
+    dark: "Oscuro",
+    accent: "Color de énfasis",
+    accents: {
+      windows: "Windows",
+      blue: "Azul",
+      violet: "Violeta",
+      teal: "Verde azulado",
+      green: "Verde",
+      orange: "Naranja",
+      rose: "Rosa",
+      graphite: "Grafito",
+    },
+  },
+  signing: {
+    title: "Política de firma de código",
+    rows: [
+      { term: "Compilación", parts: ["Cada versión la compila GitHub Actions a partir del ", ["repositorio público", "https://github.com/devnielo/wincy"], ", así que puedes comprobar lo que ejecutas con su código fuente."] },
+      {
+        term: "Firma",
+        parts: [
+          "Cuando se apruebe, las versiones para Windows se firmarán: firma de código gratuita proporcionada por ",
+          ["SignPath.io", "https://about.signpath.io"],
+          ", certificado de ",
+          ["SignPath Foundation", "https://signpath.org"],
+          ". Hasta entonces, las versiones no están firmadas.",
+        ],
+      },
+      {
+        term: "Funciones",
+        parts: ["Autor, revisor y aprobador: el mantenedor, ", ["@devnielo", "https://github.com/devnielo"], " en GitHub. La autenticación multifactor es obligatoria."],
+      },
+      { term: "Privacidad", parts: ["Wincy no envía datos a ningún sitio salvo la comprobación de actualizaciones en GitHub Releases, que puedes desactivar."] },
+    ],
   },
 };
 

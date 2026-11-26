@@ -15,21 +15,25 @@
   --fs-lead: clamp(1.0625rem, 1rem + 0.25vw, 1.25rem);
 
   /* Page */
-  --bg: #f4f4f5;
-  --surface: #ffffff;
-  --surface-2: #ececef;
-  --ink: #1b1b1f;
-  --ink-2: #56565f;
-  --line: #e0e0e5;
-  --line-strong: #cbcbd2;
-  --accent: #005fb8;
-  --accent-hover: #004f9a;
-  --accent-ink: #005fb8;
-  --accent-soft: rgb(0 95 184 / 0.1);
-  --on-accent: #ffffff;
-  --focus: #005fb8;
-  --focus-gap: #ffffff;
-  --key-side: #d6d6dc;
+  --bg: light-dark(#f4f4f5, #121214);
+  --surface: light-dark(#ffffff, #1b1b1e);
+  --surface-2: light-dark(#ececef, #232327);
+  --ink: light-dark(#1b1b1f, #f2f2f4);
+  --ink-2: light-dark(#56565f, #a8a8b2);
+  --line: light-dark(#e0e0e5, #2b2b30);
+  --line-strong: light-dark(#cbcbd2, #3b3b42);
+  --accent: light-dark(#005fb8, #60cdff);
+  --accent-hover: light-dark(#004f9a, #86d9ff);
+  --accent-ink: light-dark(#005fb8, #60cdff);
+  --accent-soft: light-dark(rgb(0 95 184 / 0.1), rgb(96 205 255 / 0.12));
+  --on-accent: light-dark(#ffffff, #04121f);
+  --focus: light-dark(#005fb8, #60cdff);
+  --focus-gap: light-dark(#ffffff, #121214);
+  --key-side: light-dark(#d6d6dc, #0c0c0e);
+  --selection: rgb(0 95 184 / 0.22);
+  /* The "Windows" swatch: the browser's AccentColor when the inline script finds one, else the default blue. */
+  --win: light-dark(#005fb8, #60cdff);
+  --win-on: light-dark(#ffffff, #04121f);
 
   /* The deep-blue band (privacy), the same in both themes */
   --band: #0b2747;
@@ -39,24 +43,24 @@
   --band-line: rgb(255 255 255 / 0.13);
 
   /* The app (palette, preview, settings), from src/index.css and HeroUI's defaults */
-  --app-surface: rgb(249 249 249 / 0.84);
-  --app-solid: #f6f6f7;
-  --app-stroke: rgb(0 0 0 / 0.09);
-  --app-selected: rgb(0 0 0 / 0.055);
-  --app-default: #e8e8eb;
-  --app-field: rgb(255 255 255 / 0.72);
-  --app-card: rgb(255 255 255 / 0.55);
-  --app-ink: #18181b;
-  --app-muted: #5b5b64;
+  --app-surface: light-dark(rgb(249 249 249 / 0.84), rgb(32 32 32 / 0.8));
+  --app-solid: light-dark(#f6f6f7, #232325);
+  --app-stroke: light-dark(rgb(0 0 0 / 0.09), rgb(255 255 255 / 0.09));
+  --app-selected: light-dark(rgb(0 0 0 / 0.055), rgb(255 255 255 / 0.07));
+  --app-default: light-dark(#e8e8eb, #34343a);
+  --app-field: light-dark(rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.06));
+  --app-card: light-dark(rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.04));
+  --app-ink: light-dark(#18181b, #fafafa);
+  --app-muted: light-dark(#5b5b64, #a3a3ad);
   --app-accent: #0485f7;
-  --app-accent-text: #0068c9;
+  --app-accent-text: light-dark(#0068c9, #5aafff);
   --app-accent-soft: rgb(4 133 247 / 0.15);
-  --app-accent-soft-ink: #1d5d9e;
-  --app-danger: #d12f33;
-  --app-warning: #a85a00;
+  --app-accent-soft-ink: light-dark(#1d5d9e, #8cc4ff);
+  --app-danger: light-dark(#d12f33, #ff6266);
+  --app-warning: light-dark(#a85a00, #f5a524);
   --app-shadow: 0 18px 48px -14px rgb(6 28 66 / 0.42), 0 2px 8px rgb(6 28 66 / 0.12);
-  --tip-bg: #2b2b30;
-  --tip-ink: #f6f6f7;
+  --tip-bg: light-dark(#2b2b30, #f2f2f4);
+  --tip-ink: light-dark(#f6f6f7, #18181b);
   --wall: url("../assets/wallpaper-light.webp");
 
   /* Windows SmartScreen dialog, as Windows draws it */
@@ -72,42 +76,45 @@
   --ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121214;
-    --surface: #1b1b1e;
-    --surface-2: #232327;
-    --ink: #f2f2f4;
-    --ink-2: #a8a8b2;
-    --line: #2b2b30;
-    --line-strong: #3b3b42;
-    --accent: #60cdff;
-    --accent-hover: #86d9ff;
-    --accent-ink: #60cdff;
-    --accent-soft: rgb(96 205 255 / 0.12);
-    --on-accent: #04121f;
-    --focus: #60cdff;
-    --focus-gap: #121214;
-    --key-side: #0c0c0e;
+/* A chosen mode pins the scheme; light-dark() tokens above follow it. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
 
-    --app-surface: rgb(32 32 32 / 0.8);
-    --app-solid: #232325;
-    --app-stroke: rgb(255 255 255 / 0.09);
-    --app-selected: rgb(255 255 255 / 0.07);
-    --app-default: #34343a;
-    --app-field: rgb(255 255 255 / 0.06);
-    --app-card: rgb(255 255 255 / 0.04);
-    --app-ink: #fafafa;
-    --app-muted: #a3a3ad;
-    --app-accent-text: #5aafff;
-    --app-accent-soft-ink: #8cc4ff;
-    --app-danger: #ff6266;
-    --app-warning: #f5a524;
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* What light-dark() can't carry (a shadow, an image, which logo shows), for the dark system theme and a chosen Dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
     --app-shadow: 0 18px 48px -14px rgb(0 0 0 / 0.7), 0 2px 8px rgb(0 0 0 / 0.4);
-    --tip-bg: #f2f2f4;
-    --tip-ink: #18181b;
     --wall: url("../assets/wallpaper-dark.webp");
+    --logo-light: none;
+    --logo-dark: block;
   }
+}
+
+:root[data-theme="dark"] {
+  --app-shadow: 0 18px 48px -14px rgb(0 0 0 / 0.7), 0 2px 8px rgb(0 0 0 / 0.4);
+  --wall: url("../assets/wallpaper-dark.webp");
+  --logo-light: none;
+  --logo-dark: block;
+}
+
+/* A chosen accent (the header's Appearance control). The inline script in Base.astro sets --accent,
+   --on-accent and --accent-hover as light-dark() pairs with AA text, like the app; the rest derive.
+   Without data-accent the page keeps the Windows default blue above. */
+:root[data-accent] {
+  /* Text in the accent, a step toward the ink so it keeps AA on tinted fills too (the tonal button). */
+  --accent-ink: color-mix(in oklab, var(--accent), var(--ink) 20%);
+  --accent-soft: color-mix(in srgb, var(--accent) 11%, transparent);
+  --focus: var(--accent);
+  --selection: color-mix(in srgb, var(--accent) 24%, transparent);
+  --app-accent: var(--accent);
+  --app-accent-text: var(--accent);
+  --app-accent-soft: color-mix(in srgb, var(--accent) 15%, transparent);
+  --app-accent-soft-ink: color-mix(in oklab, var(--accent), var(--app-ink) 30%);
 }
 
 @media (min-width: 640px) {
@@ -186,7 +193,16 @@ svg {
 }
 
 ::selection {
-  background: rgb(0 95 184 / 0.22);
+  background: var(--selection);
+}
+
+/* Logos come in a light and a dark file; the theme tokens pick one (a <picture> media query can't see a chosen mode). */
+.logo-light {
+  display: var(--logo-light, block);
+}
+
+.logo-dark {
+  display: var(--logo-dark, none);
 }
 
 :focus-visible {
@@ -475,6 +491,11 @@ svg {
   .header-download .label-short {
     display: inline;
   }
+
+  /* No room beside Download and the menu: the phone menu carries the link instead */
+  .support-btn {
+    display: none;
+  }
 }
 
 /* The hero carries its own GitHub button; very narrow headers drop the icon */
@@ -553,6 +574,155 @@ svg {
   flex: 1;
   min-height: 48px;
   font-size: 1rem;
+}
+
+/* Appearance: the app's own picker (mode and accent) as a header flyout from 640px and in the phone menu */
+.appearance-btn {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .appearance-btn {
+    display: grid;
+  }
+}
+
+.appearance-pop {
+  position: fixed;
+  inset: calc(var(--nav-h) - 4px) max(var(--gut), (100% - 1280px) / 2) auto auto;
+  width: 300px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  /* The one site layer that floats: a Windows flyout over the page. */
+  box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.28);
+}
+
+.appearance {
+  --gap: var(--surface);
+  display: grid;
+  gap: 16px;
+}
+
+.appearance fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.appearance legend {
+  margin-bottom: 8px;
+  padding: 0;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.sw-name {
+  margin-left: 8px;
+  color: var(--ink);
+}
+
+.seg {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+
+.seg label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  border-radius: 6px;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.seg label:hover {
+  color: var(--ink);
+}
+
+.seg label:has(:checked) {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sw {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--sw);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.1);
+  color: var(--sw-on);
+  cursor: pointer;
+}
+
+.sw .sw-check,
+.sw:has(:checked) .sw-win {
+  display: none;
+}
+
+.sw:has(:checked) {
+  box-shadow:
+    0 0 0 2px var(--gap),
+    0 0 0 4px var(--sw);
+}
+
+.sw:has(:checked) .sw-check {
+  display: block;
+}
+
+.seg label:has(:focus-visible),
+.sw:has(:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.sw:has(:focus-visible) {
+  outline-offset: 5px;
+}
+
+/* In the phone menu: full width and bigger targets */
+.appearance-wide {
+  --gap: var(--bg);
+  margin-top: 32px;
+}
+
+.appearance-wide .seg label {
+  min-height: 44px;
+  font-size: 0.9375rem;
+}
+
+.appearance-wide .swatches {
+  gap: 12px;
+}
+
+.appearance-wide .sw {
+  width: 36px;
+  height: 36px;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
 }
 
 /* Sections: one per screen on a laptop, separated by space or a ground change */
@@ -2326,6 +2496,32 @@ main {
 
 .note svg {
   flex: none;
+}
+
+/* The code signing policy: a small ruled tracing under the install steps */
+.policy {
+  max-width: 52rem;
+  margin-top: 64px;
+}
+
+.policy h3 {
+  font-size: 1.25rem;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+
+.policy .tracings {
+  margin-top: 16px;
+  font-size: 0.9375rem;
+}
+
+.policy .tracings dt,
+.policy .tracings dd {
+  border-top-color: var(--line);
+}
+
+.policy .tracings dt {
+  color: var(--ink-2);
 }
 
 @media (min-width: 640px) {

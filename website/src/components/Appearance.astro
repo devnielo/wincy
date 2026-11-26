@@ -1,0 +1,85 @@
+---
+import { Check, LayoutGrid, Monitor, Moon, Sun } from "@lucide/astro";
+// The app's accents and its AA rule for text on them; Base.astro's inline script applies the choice.
+import { ACCENT_NAMES, resolveAccent } from "../../../src/lib/accent";
+import type { Dict } from "../i18n/en";
+
+const { t, wide = false } = Astro.props as { t: Dict; wide?: boolean };
+const a = t.appearance;
+const modes = [
+  ["system", Monitor],
+  ["light", Sun],
+  ["dark", Moon],
+] as const;
+// Each swatch shows its accent in the current mode. "Windows" is the browser's AccentColor (set by the inline script) or the default blue.
+const swatch = (name: (typeof ACCENT_NAMES)[number]) => {
+  if (name === "windows") return "--sw: var(--win); --sw-on: var(--win-on)";
+  const [l, d] = [false, true].map((dark) => resolveAccent(name, null, dark));
+  return `--sw: light-dark(${l.color}, ${d.color}); --sw-on: light-dark(${l.foreground}, ${d.foreground})`;
+};
+---
+
+<form class:list={["appearance", { "appearance-wide": wide }]} aria-label={a.label}>
+  <fieldset>
+    <legend>{a.mode}</legend>
+    <div class="seg">
+      {
+        modes.map(([mode, Icon]) => (
+          <label>
+            <input class="sr-only" type="radio" name="mode" value={mode} checked={mode === "system"} />
+            <Icon size={16} aria-hidden="true" />
+            {a[mode]}
+          </label>
+        ))
+      }
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend>
+      {a.accent}<span class="sw-name" aria-hidden="true">{a.accents.windows}</span>
+    </legend>
+    <div class="swatches">
+      {
+        ACCENT_NAMES.map((name) => (
+          <label class="sw" style={swatch(name)} title={a.accents[name]}>
+            <input class="sr-only" type="radio" name="accent" value={name} checked={name === "windows"} aria-label={a.accents[name]} />
+            <Check class="sw-check" size={14} stroke-width={3} aria-hidden="true" />
+            {name === "windows" && <LayoutGrid class="sw-win" size={12} aria-hidden="true" />}
+          </label>
+        ))
+      }
+    </div>
+  </fieldset>
+</form>
+
+<script>
+  type Api = { mode: string; accent: string; set(mode: string, accent: string): void };
+  const api = (window as unknown as { wincyAppearance?: Api }).wincyAppearance;
+  const forms = [...document.querySelectorAll<HTMLFormElement>("form.appearance")];
+
+  // Every copy of the control (header flyout, phone menu) shows the current choice.
+  const sync = (api: Api) => {
+    for (const form of forms) {
+      for (const input of form.querySelectorAll("input")) input.checked = input.value === (input.name === "mode" ? api.mode : api.accent);
+      const name = form.querySelector(".sw-name");
+      if (name) name.textContent = form.querySelector("input[name=accent]:checked")?.getAttribute("aria-label") ?? "";
+    }
+  };
+
+  if (api) {
+    for (const form of forms) {
+      form.addEventListener("submit", (e) => e.preventDefault());
+      form.addEventListener("change", () => {
+        const data = new FormData(form);
+        const apply = () => {
+          api.set(String(data.get("mode")), String(data.get("accent")));
+          sync(api);
+        };
+        // A short crossfade between looks; none under reduced motion.
+        if (document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) document.startViewTransition(apply);
+        else apply();
+      });
+    }
+    sync(api);
+  }
+</script>

@@ -1,10 +1,14 @@
 ---
 import "@fontsource-variable/schibsted-grotesk";
 import "../styles/global.css";
-import { Menu, X } from "@lucide/astro";
+import { Coffee, Menu, SunMoon, X } from "@lucide/astro";
 import { getAbsoluteLocaleUrl, getRelativeLocaleUrl } from "astro:i18n";
+import Appearance from "../components/Appearance.astro";
 import GitHubMark from "../components/GitHubMark.astro";
-import { REPO_URL, DOWNLOAD_URL } from "../consts";
+import Logo from "../components/Logo.astro";
+// The app's accent palette (light, dark), so the site offers exactly the app's colours.
+import { ACCENTS } from "../../../src/lib/accent";
+import { REPO_URL, DOWNLOAD_URL, SUPPORT_URL } from "../consts";
 import { dictionaries, type Lang } from "../i18n";
 
 const { lang } = Astro.props as { lang: Lang };
@@ -37,6 +41,70 @@ const sections = [
     <link rel="sitemap" href={`${base}/sitemap-index.xml`} />
     <meta name="theme-color" content="#f4f4f5" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#121214" media="(prefers-color-scheme: dark)" />
+    <script is:inline define:vars={{ ACCENTS }}>
+      // Applies the saved appearance before first paint, so a chosen look never flashes the default.
+      // Same rules as the app (src/lib/accent.ts, color.ts): an accent darkens (light) or lightens (dark)
+      // until it reaches AA on the surface, and the text on it is white when that reaches AA, else black.
+      const root = document.documentElement;
+      const lum = (c) => c.map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+      const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+      const mix = (c, to, k) => c.map((v, i) => v + (to[i] - v) * k);
+      const hex = (c) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+      const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+      const tokens = (c, dark) => {
+        while (ratio(c, dark ? [32, 32, 32] : [243, 243, 243]) < 4.5) c = mix(c, dark ? [255, 255, 255] : [0, 0, 0], 0.1);
+        const on = ratio(c, [255, 255, 255]) >= 4.5 ? [255, 255, 255] : [0, 0, 0];
+        return [hex(c), hex(on), hex(mix(c, on.map((v) => 255 - v), 0.16))]; // accent, text on it, hover (away from the text)
+      };
+      // "Windows" on the web: the browser's AccentColor where it exposes the system's, else the default blue in global.css.
+      let system = null;
+      try {
+        if (CSS.supports("color", "AccentColor")) {
+          root.style.color = "AccentColor";
+          const m = getComputedStyle(root).color.match(/^rgba?\((\d+), (\d+), (\d+)/);
+          root.style.color = "";
+          // Chromium answers its own fixed blue (#0075FF, #99C8FF), not the Windows accent: keep today's default then.
+          if (m && !["0,117,255", "153,200,255"].includes(m.slice(1).join())) system = m.slice(1).map(Number);
+        }
+      } catch {}
+      const pair = (name) => {
+        const [l, d] = name === "windows" ? (system ? [system, system] : []) : ACCENTS[name].map(rgb);
+        return l && [tokens(l, false), tokens(d, true)];
+      };
+      const ld = (p, i) => `light-dark(${p[0][i]}, ${p[1][i]})`;
+      const win = pair("windows");
+      if (win) {
+        root.style.setProperty("--win", ld(win, 0));
+        root.style.setProperty("--win-on", ld(win, 1));
+      }
+      const metas = document.querySelectorAll('meta[name="theme-color"]');
+      const apply = (mode, accent) => {
+        mode = mode === "light" || mode === "dark" ? mode : "system";
+        accent = accent === "windows" || Object.hasOwn(ACCENTS, accent) ? accent : "windows";
+        if (mode === "system") delete root.dataset.theme;
+        else root.dataset.theme = mode;
+        const p = pair(accent);
+        if (p) root.dataset.accent = accent;
+        else delete root.dataset.accent;
+        ["--accent", "--on-accent", "--accent-hover"].forEach((k, i) => (p ? root.style.setProperty(k, ld(p, i)) : root.style.removeProperty(k)));
+        metas.forEach((m, i) => (m.content = (mode === "system" ? i : mode === "dark") ? "#121214" : "#f4f4f5"));
+        return { mode, accent };
+      };
+      const KEY = "wincy-appearance";
+      let saved = null;
+      try {
+        saved = JSON.parse(localStorage.getItem(KEY) || "null");
+      } catch {}
+      window.wincyAppearance = {
+        ...apply(saved?.mode, saved?.accent),
+        set(mode, accent) {
+          Object.assign(this, apply(mode, accent));
+          try {
+            localStorage.setItem(KEY, JSON.stringify({ mode: this.mode, accent: this.accent }));
+          } catch {}
+        },
+      };
+    </script>
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Wincy" />
@@ -60,7 +128,7 @@ const sections = [
     <header class="site-header">
       <div class="wrap header-inner">
         <a class="brand" href={getRelativeLocaleUrl(lang)}>
-          <picture><source media="(prefers-color-scheme: dark)" srcset={`${base}/logo-dark.svg`} /><img src={`${base}/logo-light.svg`} alt="Wincy" width="96" height="29" /></picture>
+          <Logo width={96} height={29} />
         </a>
         <nav class="site-nav" aria-label={t.nav.label}>
           {sections.map(([id, label]) => <a class="nav-link" href={`#${id}`}>{label}</a>)}
@@ -76,8 +144,14 @@ const sections = [
               ))
             }
           </nav>
+          <button type="button" class="icon-btn appearance-btn" popovertarget="appearance" aria-label={t.appearance.label} title={t.appearance.label}>
+            <SunMoon size={20} aria-hidden="true" />
+          </button>
           <a class="icon-btn" href={REPO_URL} aria-label="GitHub">
             <GitHubMark size={20} />
+          </a>
+          <a class="icon-btn support-btn" href={SUPPORT_URL} aria-label={t.footer.support} title={t.footer.support}>
+            <Coffee size={20} aria-hidden="true" />
           </a>
           <a class="btn btn-primary btn-sm header-download" href={DOWNLOAD_URL}>
             <span class="label-long">{t.hero.download}</span>
@@ -88,9 +162,12 @@ const sections = [
           </button>
         </div>
       </div>
+      <div id="appearance" class="appearance-pop" popover>
+        <Appearance t={t} />
+      </div>
       <div id="site-menu" class="menu" popover>
         <div class="menu-head">
-          <span class="brand"><picture><source media="(prefers-color-scheme: dark)" srcset={`${base}/logo-dark.svg`} /><img src={`${base}/logo-light.svg`} alt="Wincy" width="96" height="29" /></picture></span>
+          <span class="brand"><Logo width={96} height={29} /></span>
           <button type="button" class="icon-btn" popovertarget="site-menu" popovertargetaction="hide" aria-label={t.nav.closeMenu}>
             <X size={22} aria-hidden="true" />
           </button>
@@ -98,6 +175,7 @@ const sections = [
         <nav aria-label={t.nav.label}>
           <ul class="menu-links">
             {sections.map(([id, label]) => <li><a href={`#${id}`}>{label}</a></li>)}
+            <li><a href={SUPPORT_URL}>{t.footer.support}</a></li>
           </ul>
         </nav>
         <nav class="lang lang-wide" aria-label={t.nav.language}>
@@ -109,6 +187,7 @@ const sections = [
             ))
           }
         </nav>
+        <Appearance t={t} wide />
       </div>
     </header>
 

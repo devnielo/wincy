@@ -238,6 +238,17 @@ Direcciones, no promesas. Abre un issue para hablarlo antes de empezar a trabaja
 - Más idiomas
 - Paquetes para winget y Scoop
 
+## Política de firma de código
+
+Cada versión se compila con GitHub Actions desde este repositorio público. Una vez aprobada, las versiones para Windows se firmarán: firma de código gratuita de [SignPath.io](https://about.signpath.io), certificado de [SignPath Foundation](https://signpath.org). Hasta entonces, las versiones no están firmadas.
+
+- Autores y revisores: [@devnielo](https://github.com/devnielo)
+- Aprobadores: [@devnielo](https://github.com/devnielo)
+
+Todas las personas con estos roles deben usar autenticación multifactor.
+
+**Privacidad:** este programa no transfiere información a otros sistemas en red salvo que lo pida expresamente el usuario o quien lo instala o utiliza. La única conexión es la comprobación de actualizaciones contra GitHub Releases, que puedes desactivar en Ajustes.
+
 ## Apoya el proyecto
 
 Wincy es gratuito y open source, y lo seguirá siendo. Si te ahorra tiempo cada día, puedes [invitarme a un café](https://buymeacoffee.com/devnielo): ayuda a mantener el proyecto. Dar una estrella al repo y reportar fallos también ayuda.
