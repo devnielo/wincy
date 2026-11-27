@@ -81,18 +81,23 @@ pub fn run() {
                 .args(["--autostart"])
                 .build(),
         )
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let handle = app.handle();
             let portable = paths::is_portable();
+            let store = paths::is_store();
             log::info!(
-                "Wincy {} starting{}",
+                "Wincy {} starting{}{}",
                 app.package_info().version,
-                if portable { " (portable)" } else { "" }
+                if portable { " (portable)" } else { "" },
+                if store { " (Store)" } else { "" }
             );
+            // Store policy: Microsoft Store packages never update themselves.
+            if !store {
+                handle.plugin(tauri_plugin_updater::Builder::new().build())?;
+            }
             let data_dir = paths::data_dir(handle)?;
             let images_dir = data_dir.join("images");
             std::fs::create_dir_all(&images_dir)?;
@@ -103,11 +108,6 @@ pub fn run() {
             let settings = settings::load(handle);
 
             let shortcut_error = settings::swap_shortcut(handle, None, &settings.shortcut).err();
-            // Dev builds would register target/debug/wincy.exe to run at login; a portable
-            // exe can be moved or live on a removable drive.
-            if !cfg!(debug_assertions) && !portable {
-                settings::sync_autostart(handle, settings.launch_at_startup);
-            }
             if let Err(e) = db::trim(&conn, settings.max_items)
                 .map(|(_, images)| db::remove_images(&images_dir, &images))
             {
@@ -115,6 +115,7 @@ pub fn run() {
             }
 
             let theme = settings.theme;
+            let launch_at_startup = settings.launch_at_startup;
             app.manage(AppState {
                 db: Mutex::new(conn),
                 settings: Mutex::new(settings),
@@ -126,8 +127,15 @@ pub fn run() {
                     log_dir: paths::log_dir(handle)?.to_string_lossy().into_owned(),
                     shortcut_conflicts: Vec::new(),
                     portable,
+                    store,
                 }),
             });
+            // After `manage`: the Store build syncs on a thread that may write the settings back.
+            // Dev builds would register target/debug/wincy.exe to run at login; a portable
+            // exe can be moved or live on a removable drive.
+            if !cfg!(debug_assertions) && !portable {
+                settings::sync_autostart(handle, launch_at_startup);
+            }
             // Before the frontend exists: a command calling `sync` meanwhile could deadlock it.
             shortcuts::sync(handle);
             // Created here (`create: false` in tauri.conf.json) to set the WebView2 profile folder.

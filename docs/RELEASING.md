@@ -58,6 +58,10 @@ After the installer, the workflow packs `Wincy_X.Y.Z_x64-portable.zip` with `src
 
 winget stays **NSIS-only**: [`packaging/winget`](../packaging/winget/README.md) uses the `*_x64-setup.exe` installer, never the zip.
 
+## Microsoft Store
+
+The workflow also packs an unsigned `Wincy_X.Y.Z.0_x64.msix` with the same `wincy.exe` and uploads it as the workflow artifact **msix** (not to the release: Partner Center signs it). To submit it to the Store, see [STORE.md](STORE.md).
+
 ## If a release is broken
 
 If a release turns out to be broken, publish a fixed higher version. Deleting a release makes `latest` fall back to the previous one, but users who already updated stay on the broken version until a newer one ships.

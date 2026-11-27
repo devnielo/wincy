@@ -16,6 +16,8 @@ pub struct Status {
     pub shortcut_conflicts: Vec<String>,
     /// Data lives next to the exe: no autostart, no in-place updates.
     pub portable: bool,
+    /// Microsoft Store (MSIX) package: no self-update, autostart through its `StartupTask`.
+    pub store: bool,
 }
 
 /// Applies `change` and emits `status-changed` when it changed anything.

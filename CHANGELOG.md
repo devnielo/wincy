@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Microsoft Store package (**Wincy Clipboard**): releases also build an unsigned MSIX (`packaging/msix/build.ps1`, workflow artifact `msix`) for Partner Center. In the Store version, updates come from the Microsoft Store (no update check) and **Launch at startup** uses the Windows startup task; the installer and portable versions are unchanged. See `docs/STORE.md`.
+
 ## [0.3.0] - 2026-11-25
 
 ### Added

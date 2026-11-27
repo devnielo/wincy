@@ -161,3 +161,19 @@ jobs:
         run: |
           gh release upload $env:GITHUB_REF_NAME $env:PORTABLE_ZIP --clobber
           if ($LASTEXITCODE) { throw 'gh release upload failed' }
+
+      # Microsoft Store package, both flows; last, so a failure here can't block the GitHub release.
+      # Unsigned: Partner Center signs it on upload, and an unsigned MSIX can't be installed, so it is
+      # a workflow artifact, never a release asset (docs/STORE.md).
+      - name: Package MSIX
+        env:
+          SIGNED: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        run: |
+          $exe = if ($env:SIGNED -eq 'true') { 'signed/wincy.exe' } else { 'src-tauri/target/release/wincy.exe' }
+          ./packaging/msix/build.ps1 -Version $env:VERSION -Exe $exe -OutDir msix
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: msix
+          path: msix/*.msix
+          if-no-files-found: error

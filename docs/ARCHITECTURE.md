@@ -18,8 +18,9 @@ Repository: `https://github.com/devnielo/wincy` (website: `https://devnielo.gith
 ├── src-tauri/          Rust backend (Tauri v2)
 ├── website/            Astro site for GitHub Pages (independent package.json)
 ├── assets/logo.svg     master logo (icons generated with `pnpm tauri icon assets/logo.svg`)
-├── docs/               ARCHITECTURE.md (this), RELEASING.md, SIGNING.md
+├── docs/               ARCHITECTURE.md (this), RELEASING.md, SIGNING.md, STORE.md
 ├── packaging/winget/   winget manifest templates + render script
+├── packaging/msix/     Microsoft Store package: AppxManifest.xml template + build.ps1
 └── .github/            workflows (ci, release, pages), issue templates
 ```
 
@@ -192,6 +193,7 @@ pubkey (minisign, also in `tauri.conf.json`):
 `dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYzNkRBMzY4QzU3QzRBQUYKUldTdlNuekZhS050WTBBazNwM0N2WWZxajkzN2cwODk3Zmk4a0FiUHp6Q1hvOTN1dzdCaTMwMFcK`
 Private key lives outside the repo (`%USERPROFILE%\.tauri\wincy.key`, no password) and goes into the GitHub secret
 `TAURI_SIGNING_PRIVATE_KEY`. Bundle target: **NSIS only**, `installMode: "currentUser"`, `createUpdaterArtifacts: true`.
+The updater plugin is not registered in the Microsoft Store build (see "Microsoft Store package" below).
 
 ## i18n
 Frontend: tiny dictionary in `src/i18n.ts` (`en`, `es`), `language: "system"` uses `navigator.language`.
@@ -342,3 +344,14 @@ Below 2 000 clips behaviour is unchanged (Fuse only).
 - An empty `shortcut` string in `save_snippet` / `set_clip_shortcut` means none. The backend rejects reserved combos and duplicates (case and modifier order ignored) for pins and snippets; changing the main shortcut is refused while a pin or snippet uses it.
 - Export refuses to write a file over the 512 MB import limit (suggests exporting without images).
 - Export with **Include images** off still lists image clips (with `ocrText`, without `imagePng`); importing them counts them as `skipped`.
+
+## Unreleased additions (binding)
+
+### Microsoft Store package (MSIX)
+`packaging/msix/build.ps1 -Version X.Y.Z [-Exe] [-OutDir]` packs `wincy.exe` into an **unsigned** `Wincy_X.Y.Z.0_x64.msix` (Partner Center signs it; see `docs/STORE.md`).
+Identity `devnielo.WincyClipboard`, display name "Wincy Clipboard", `runFullTrust`, startup task `WincyStartup` (`Enabled="false"`).
+The backend detects the package with `paths::is_store()` (`Package::Current()` has the name `devnielo.WincyClipboard`; a child of another packaged app can inherit that app's identity) and exposes it as `Status.store: boolean` (dev mock: `?store`).
+In the Store build:
+- The updater plugin is never registered and the frontend never checks: no startup check, no "check for updates" toggle, no `UpdateSection`; Settings → Updates shows "Updates come from the Microsoft Store." (Store policy: no self-update.)
+- "Launch at startup" uses the `WincyStartup` `StartupTask` (`RequestEnableAsync` / `Disable`) instead of `HKCU\...\Run`, which MSIX virtualizes. `save_settings` calls it synchronously (it runs on an async-command worker thread) and saves the real state, so turning it on while Windows reports `DisabledByUser` / `DisabledByPolicy` is logged and saved as `false`. At startup it runs on a background thread and, if the real state differs, writes `launchAtStartup` back and emits `settings-changed`.
+NSIS and portable builds are unchanged.

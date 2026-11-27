@@ -245,6 +245,7 @@ export function SettingsView() {
   const setError = useClipboardStore((s) => s.setError);
   const setView = useClipboardStore((s) => s.setView);
   const portable = useClipboardStore((s) => s.status?.portable ?? false);
+  const store = useClipboardStore((s) => s.status?.store ?? false);
   const [version, setVersion] = useState("");
   // Kept after closing so the dialog keeps its text during the exit animation.
   const [confirm, setConfirm] = useState<Confirm | null>(null);
@@ -405,10 +406,16 @@ export function SettingsView() {
           </Section>
 
           <Section title={t("s.updates")}>
-            <Toggle field="checkUpdates" label="s.checkUpdates" />
-            <div className="px-3 py-2">
-              <UpdateSection />
-            </div>
+            {store ? (
+              <p className="px-3 py-2.5 text-sm">{t("s.storeUpdates")}</p>
+            ) : (
+              <>
+                <Toggle field="checkUpdates" label="s.checkUpdates" />
+                <div className="px-3 py-2">
+                  <UpdateSection />
+                </div>
+              </>
+            )}
           </Section>
 
           <Section title={t("s.data")}>

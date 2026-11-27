@@ -202,6 +202,8 @@ let status: Status = {
   shortcutConflicts: [],
   // `?portable` in the dev URL behaves like the portable zip build.
   portable: new URLSearchParams(location.search).has("portable"),
+  // `?store` behaves like the Microsoft Store package.
+  store: new URLSearchParams(location.search).has("store"),
 };
 status.shortcutConflicts = shortcutConflicts();
 

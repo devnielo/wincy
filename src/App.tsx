@@ -16,6 +16,8 @@ let updateChecked = false;
 /** Backend events + initial load. */
 function useBackendSync() {
   const checkUpdates = useClipboardStore((s) => s.settings?.checkUpdates);
+  // Undefined until the status loads; the Store build never updates itself.
+  const store = useClipboardStore((s) => s.status?.store);
 
   useEffect(() => {
     const s = useClipboardStore.getState();
@@ -44,11 +46,11 @@ function useBackendSync() {
   }, []);
 
   useEffect(() => {
-    if (!checkUpdates || updateChecked) return;
+    if (!checkUpdates || store !== false || updateChecked) return;
     updateChecked = true;
     // Silent (only logged): a failed background check (offline, rate limit) is not worth bothering the user.
     checkForUpdate().then(useClipboardStore.getState().setUpdate, () => undefined);
-  }, [checkUpdates]);
+  }, [checkUpdates, store]);
 }
 
 /** Drives the `preview` window: the selected clip while the preview is on, else hidden. */

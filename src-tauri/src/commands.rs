@@ -313,10 +313,11 @@ pub async fn copy_diagnostics(app: AppHandle) -> Res<String> {
     let lines: Vec<&str> = log.lines().collect();
     let tail = lines[lines.len().saturating_sub(200)..].join("\n");
     let text = format!(
-        "Wincy {}{}\nWindows {}\nOCR: {}\nClips: {clips}\nShortcut error: {}\n\
+        "Wincy {}{}{}\nWindows {}\nOCR: {}\nClips: {clips}\nShortcut error: {}\n\
          Shortcut conflicts: {:?}\nSettings: {settings_json:#}\n\nLast log lines:\n{tail}\n",
         app.package_info().version,
         if status.portable { " (portable)" } else { "" },
+        if status.store { " (Store)" } else { "" },
         windows_version(),
         ocr::availability(),
         status.shortcut_error.as_deref().unwrap_or("none"),

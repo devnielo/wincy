@@ -202,6 +202,18 @@ pub fn swap_shortcut(app: &AppHandle, old: Option<&str>, new: &str) -> Result<()
 }
 
 pub fn sync_autostart(app: &AppHandle, enabled: bool) {
+    if paths::is_store() {
+        // MSIX virtualizes HKCU\...\Run; a packaged app starts at login through its StartupTask.
+        // Startup only (`save` calls `sync_startup_task` itself): blocks on WinRT, so off the main thread.
+        let app = app.clone();
+        std::thread::spawn(move || {
+            let actual = sync_startup_task(enabled);
+            if actual != enabled {
+                write_back_launch_at_startup(&app, actual);
+            }
+        });
+        return;
+    }
     let al = app.autolaunch();
     let result = match (enabled, al.is_enabled().unwrap_or(!enabled)) {
         (true, false) => al.enable(),
@@ -213,9 +225,57 @@ pub fn sync_autostart(app: &AppHandle, enabled: bool) {
     }
 }
 
+/// Store build: enables/disables the `WincyStartup` task from `packaging/msix/AppxManifest.xml`
+/// and returns whether Wincy will really start with Windows. Blocks on WinRT async calls.
+fn sync_startup_task(enabled: bool) -> bool {
+    use windows::ApplicationModel::{StartupTask, StartupTaskState as S};
+    let state = (|| {
+        let task = StartupTask::GetAsync(&"WincyStartup".into())?.join()?;
+        match (enabled, task.State()?) {
+            (true, S::Disabled) => task.RequestEnableAsync()?.join(),
+            (false, S::Enabled) => task.Disable().and_then(|_| task.State()),
+            (_, state) => Ok(state),
+        }
+    })();
+    match state {
+        Ok(S::Enabled | S::EnabledByPolicy) => true,
+        Ok(S::DisabledByUser) if enabled => {
+            log::info!(
+                "autostart: Wincy can't turn itself on: it is turned off in Windows startup apps"
+            );
+            false
+        }
+        Ok(S::DisabledByPolicy) if enabled => {
+            log::info!("autostart: Wincy can't turn itself on: it is disabled by policy");
+            false
+        }
+        Ok(_) => false,
+        Err(e) => {
+            log::warn!("autostart: {e}");
+            enabled
+        }
+    }
+}
+
+/// Reflects the real StartupTask state so the toggle doesn't lie about starting with Windows.
+fn write_back_launch_at_startup(app: &AppHandle, enabled: bool) {
+    let state = app.state::<AppState>();
+    let settings = {
+        let mut s = state.settings.lock().unwrap();
+        s.launch_at_startup = enabled;
+        s.clone()
+    };
+    match path(app).and_then(|p| write(&p, &settings)) {
+        Ok(()) => {
+            let _ = app.emit("settings-changed", &settings);
+        }
+        Err(e) => log::warn!("settings: {e}"),
+    }
+}
+
 /// Validates, applies and persists new settings. Returns the stored settings.
 pub fn save(app: &AppHandle, new: Settings) -> Result<Settings, String> {
-    let new = new.validated()?;
+    let mut new = new.validated()?;
     let state = app.state::<AppState>();
     let old = state.settings.lock().unwrap().clone();
     if new.shortcut != old.shortcut
@@ -236,6 +296,10 @@ pub fn save(app: &AppHandle, new: Settings) -> Result<Settings, String> {
         Err(e) if old.shortcut == new.shortcut => Some(e),
         Err(e) => return Err(e),
     };
+    // Store: synchronous (async command, so a worker thread) so the real state is what gets saved.
+    if paths::is_store() && old.launch_at_startup != new.launch_at_startup {
+        new.launch_at_startup = sync_startup_task(new.launch_at_startup);
+    }
     if let Err(e) = write(&path(app)?, &new) {
         let _ = swap_shortcut(app, Some(&new.shortcut), &old.shortcut);
         return Err(format!("Could not save settings: {e}"));
@@ -243,8 +307,9 @@ pub fn save(app: &AppHandle, new: Settings) -> Result<Settings, String> {
     *state.settings.lock().unwrap() = new.clone();
     status::update(app, |s| s.shortcut_error = shortcut_error);
 
-    // Portable: the registry entry would point at a removable or moved exe.
-    if old.launch_at_startup != new.launch_at_startup && !paths::is_portable() {
+    // Portable: the registry entry would point at a removable or moved exe. Store: synced above.
+    if old.launch_at_startup != new.launch_at_startup && !paths::is_portable() && !paths::is_store()
+    {
         sync_autostart(app, new.launch_at_startup);
     }
     if new.max_items < old.max_items {

@@ -192,6 +192,7 @@ const en = {
   "s.exportFailed": "Export failed",
   "s.importFailed": "Import failed",
   "s.portableUpdate": "Version {version} is available. The portable version updates by hand.",
+  "s.storeUpdates": "Updates come from the Microsoft Store.",
   "s.downloadPage": "Open download page",
 } as const;
 
@@ -388,6 +389,7 @@ const es: Record<MessageKey, string> = {
   "s.exportFailed": "No se pudo exportar",
   "s.importFailed": "No se pudo importar",
   "s.portableUpdate": "La versión {version} está disponible. La versión portable se actualiza a mano.",
+  "s.storeUpdates": "Las actualizaciones llegan desde Microsoft Store.",
   "s.downloadPage": "Abrir página de descarga",
 };
 

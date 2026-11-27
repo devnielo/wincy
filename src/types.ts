@@ -85,6 +85,7 @@ export interface Status {
   logDir: string;
   shortcutConflicts: string[]; // pin/snippet shortcuts that failed to register, e.g. "Alt+Shift+M (pin)"
   portable: boolean;
+  store: boolean; // Microsoft Store (MSIX) package: updates come from the Store
 }
 
 export type View = "palette" | "settings";

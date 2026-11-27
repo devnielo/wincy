@@ -24,6 +24,18 @@ pub fn is_portable() -> bool {
     portable_root().is_some()
 }
 
+/// Running from the Microsoft Store (MSIX) package. Checks the name: a child of another packaged
+/// app can inherit that app's identity.
+pub fn is_store() -> bool {
+    static STORE: OnceLock<bool> = OnceLock::new();
+    *STORE.get_or_init(|| {
+        windows::ApplicationModel::Package::Current()
+            .and_then(|p| p.Id())
+            .and_then(|id| id.Name())
+            .is_ok_and(|n| n == "devnielo.WincyClipboard")
+    })
+}
+
 /// DB, images.
 pub fn data_dir(app: &AppHandle) -> tauri::Result<PathBuf> {
     portable_root().map_or_else(|| app.path().app_data_dir(), |r| Ok(r.to_path_buf()))
@@ -51,7 +63,12 @@ pub fn portable_log_dir() -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::portable_root_in;
+    use super::{is_store, portable_root_in};
+
+    #[test]
+    fn tests_run_unpackaged() {
+        assert!(!is_store());
+    }
 
     #[test]
     fn marker_file_enables_portable_mode() {
