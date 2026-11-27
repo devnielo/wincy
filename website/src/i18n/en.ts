@@ -233,7 +233,7 @@ const en = {
       {
         fragment: "download",
         title: "Download the installer",
-        body: "From the latest release on GitHub, download the file that ends in -setup.exe.",
+        body: "Download the installer for the latest version. It's a single .exe file.",
       },
       {
         fragment: "smartscreen",
@@ -251,8 +251,13 @@ const en = {
         body: "Copy a few things, then press Alt+V. Wincy lives in the system tray: click its icon to open the palette, or right-click it for more options.",
       },
     ],
-    link: "Open the latest release",
-    note: "Not on winget yet. Rather not install? Each release also has a portable .zip: extract it and run wincy.exe. It keeps its data in its own folder and doesn't update itself.",
+    link: "Download the installer",
+    note: [
+      "Not on winget yet. Rather not install? Download the ",
+      "portable .zip",
+      ", extract it and run wincy.exe. It keeps its data in its own folder and doesn't update itself.",
+    ],
+    allReleases: "All versions on GitHub",
     smartscreen: {
       title: "Windows protected your PC",
       moreInfo: "More info",

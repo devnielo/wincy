@@ -217,7 +217,7 @@ const es: Dict = {
       {
         fragment: "download",
         title: "Descarga el instalador",
-        body: "En la última versión publicada en GitHub, descarga el archivo que termina en -setup.exe.",
+        body: "Descarga el instalador de la última versión. Es un único archivo .exe.",
       },
       {
         fragment: "smartscreen",
@@ -235,8 +235,13 @@ const es: Dict = {
         body: "Copia un par de cosas y pulsa Alt+V. Wincy vive en la bandeja del sistema: haz clic en su icono para abrir la paleta, o con el botón derecho para ver más opciones.",
       },
     ],
-    link: "Ir a la última versión",
-    note: "Todavía no está en winget. ¿Prefieres no instalar nada? Cada versión trae también un .zip portable: extráelo y ejecuta wincy.exe. Guarda sus datos en su propia carpeta y no se actualiza solo.",
+    link: "Descargar el instalador",
+    note: [
+      "Todavía no está en winget. ¿Prefieres no instalar nada? Descarga el ",
+      ".zip portable",
+      ", extráelo y ejecuta wincy.exe. Guarda sus datos en su propia carpeta y no se actualiza solo.",
+    ],
+    allReleases: "Todas las versiones en GitHub",
     smartscreen: {
       title: "Windows protegió su PC",
       moreInfo: "Más información",

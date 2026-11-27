@@ -31,7 +31,7 @@ import Keys from "./Keys.astro";
 import Palette from "./Palette.astro";
 import Logo from "./Logo.astro";
 import Row from "./Row.astro";
-import { DOWNLOAD_URL, INSTALLER, REPO_URL, SUPPORT_URL, VERSION } from "../consts";
+import { DOWNLOAD_URL, INSTALLER, INSTALLER_URL, PORTABLE_URL, REPO_URL, SUPPORT_URL, VERSION } from "../consts";
 import { dictionaries, type Lang } from "../i18n";
 
 const { lang } = Astro.props as { lang: Lang };
@@ -60,7 +60,7 @@ const facts = [`v${VERSION}`, ...t.hero.facts];
         <div class="hero-side">
           <p class="hero-lead">{t.hero.lead}</p>
           <div class="actions">
-            <a class="btn btn-primary" href={DOWNLOAD_URL}>
+            <a class="btn btn-primary" href={INSTALLER_URL}>
               <Download size={18} aria-hidden="true" />
               {t.hero.download}
             </a>
@@ -280,7 +280,7 @@ const facts = [`v${VERSION}`, ...t.hero.facts];
               <div class="step-visual">
                 {s.fragment === "download" && (
                   <div class="step-download">
-                    <a class="btn btn-primary" href={DOWNLOAD_URL}>
+                    <a class="btn btn-primary" href={INSTALLER_URL}>
                       {t.install.link}
                       <ArrowRight size={16} class="arrow" aria-hidden="true" />
                     </a>
@@ -336,7 +336,10 @@ const facts = [`v${VERSION}`, ...t.hero.facts];
       </ol>
       <p class="note">
         <Info size={18} aria-hidden="true" />
-        {t.install.note}
+        <span>
+          {t.install.note[0]}<a href={PORTABLE_URL}>{t.install.note[1]}</a>{t.install.note[2]}
+          <a href={DOWNLOAD_URL}>{t.install.allReleases}</a>
+        </span>
       </p>
       <div id="code-signing" class="policy">
         <h3>{t.signing.title}</h3>
@@ -387,7 +390,7 @@ const facts = [`v${VERSION}`, ...t.hero.facts];
           <h2 id="cta-title">{t.cta.title}</h2>
           <p class="close-lead">{t.cta.body}</p>
           <div class="actions">
-            <a class="btn btn-primary" href={DOWNLOAD_URL}>
+            <a class="btn btn-primary" href={INSTALLER_URL}>
               <Download size={18} aria-hidden="true" />
               {t.hero.download}
             </a>

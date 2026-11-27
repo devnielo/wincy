@@ -40,6 +40,7 @@ Releases are built by GitHub Actions ([`.github/workflows/release.yml`](../.gith
 5. Wait for the **Release** workflow to finish. It creates a draft release named `Wincy vX.Y.Z`. With SignPath signing on, it first waits for you to approve the signing request in SignPath (link in the job log).
 6. Check the draft: the installer (`*_x64-setup.exe`), `*_x64-setup.exe.sig`, `latest.json` and `*_x64-portable.zip` must be attached. Optionally paste the changelog section into the release notes.
 7. **Publish the draft.** Until it is published, the updater cannot see it: `releases/latest` only resolves to published, non-prerelease releases.
+8. **Rebuild the website**: Actions → Pages → Run workflow (on `main`). Its download buttons link straight to this version's installer and zip, and they keep pointing at the previous version until the site is rebuilt. Don't push `website/` changes between the version bump and publishing the release, or the buttons would point at a draft and return 404.
 
 To rebuild an existing tag, run the workflow manually (Actions → Release → Run workflow) and pick the **tag** in "Use workflow from". The job is skipped when run from a branch. This only works while the release is still a draft. Once it is published, delete the release (keep the tag) and re-run, or ship a new patch version.
 
